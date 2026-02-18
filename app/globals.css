@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-stamp-paper text-stamp-ink;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+a {
+  @apply text-stamp-accent underline-offset-2 hover:underline;
+}

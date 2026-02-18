@@ -1,0 +1,265 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAddress(value) {
+      return value is string
+        && value.size() >= 3
+        && value.size() <= 20
+        && value.matches('^[a-z0-9_]+$');
+    }
+
+    function isTheme(value) {
+      return value is string && value.matches('^theme:[a-z0-9-]+$');
+    }
+
+    function hasOnlyKeys(data, keys) {
+      return data.keys().hasOnly(keys);
+    }
+
+    function userUpdateKeysAllowed() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'displayName',
+        'bio',
+        'photoUrl',
+        'backgroundUrl',
+        'address',
+        'addressLastChangedAt',
+        'updatedAt',
+        'postCount',
+        'totalLikesReceived'
+      ]);
+    }
+
+    function userCoreFieldsUnchanged(uid) {
+      return request.resource.data.uid == uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.emailVerified == resource.data.emailVerified;
+    }
+
+    function isOwnerProfileUpdate(uid) {
+      return isOwner(uid)
+        && userUpdateKeysAllowed()
+        && userCoreFieldsUnchanged(uid)
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 50
+        && request.resource.data.bio is string
+        && request.resource.data.bio.size() <= 160
+        && (request.resource.data.photoUrl == '' || isTheme(request.resource.data.photoUrl))
+        && (request.resource.data.backgroundUrl == '' || isTheme(request.resource.data.backgroundUrl))
+        && isAddress(request.resource.data.address)
+        && request.resource.data.postCount is int
+        && request.resource.data.totalLikesReceived is int;
+    }
+
+    function isCounterOnlyExternalUpdate(uid) {
+      return isSignedIn()
+        && request.resource.data.uid == uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.displayName == resource.data.displayName
+        && request.resource.data.address == resource.data.address
+        && request.resource.data.bio == resource.data.bio
+        && request.resource.data.photoUrl == resource.data.photoUrl
+        && request.resource.data.backgroundUrl == resource.data.backgroundUrl
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.addressLastChangedAt == resource.data.addressLastChangedAt
+        && request.resource.data.emailVerified == resource.data.emailVerified
+        && request.resource.data.postCount == resource.data.postCount
+        && request.resource.data.totalLikesReceived is int
+        && request.resource.data.totalLikesReceived >= resource.data.totalLikesReceived - 1
+        && request.resource.data.totalLikesReceived <= resource.data.totalLikesReceived + 1
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['totalLikesReceived', 'updatedAt']);
+    }
+
+    function validUserCreate(uid) {
+      return hasOnlyKeys(request.resource.data, [
+          'uid',
+          'email',
+          'displayName',
+          'address',
+          'bio',
+          'photoUrl',
+          'backgroundUrl',
+          'postCount',
+          'totalLikesReceived',
+          'addressLastChangedAt',
+          'emailVerified',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.email is string
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 50
+        && isAddress(request.resource.data.address)
+        && request.resource.data.bio is string
+        && request.resource.data.bio.size() <= 160
+        && (request.resource.data.photoUrl == '' || isTheme(request.resource.data.photoUrl))
+        && (request.resource.data.backgroundUrl == '' || isTheme(request.resource.data.backgroundUrl))
+        && request.resource.data.postCount == 0
+        && request.resource.data.totalLikesReceived == 0
+        && request.resource.data.addressLastChangedAt == null
+        && request.resource.data.emailVerified == false;
+    }
+
+    function validPostCreate(postId) {
+      return hasOnlyKeys(request.resource.data, [
+          'authorUid',
+          'authorAddress',
+          'content',
+          'likeCount',
+          'createdAt',
+          'updatedAt',
+          'deleted'
+        ])
+        && request.resource.data.authorUid == request.auth.uid
+        && isAddress(request.resource.data.authorAddress)
+        && request.resource.data.content is string
+        && request.resource.data.content.size() >= 1
+        && request.resource.data.content.size() <= 280
+        && request.resource.data.likeCount == 0
+        && request.resource.data.deleted == false;
+    }
+
+    function isPostSoftDeleteByAuthor() {
+      return request.auth.uid == resource.data.authorUid
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.authorAddress == resource.data.authorAddress
+        && request.resource.data.content == resource.data.content
+        && request.resource.data.likeCount == resource.data.likeCount
+        && request.resource.data.createdAt == resource.data.createdAt
+        && resource.data.deleted == false
+        && request.resource.data.deleted == true
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['deleted', 'updatedAt']);
+    }
+
+    function isPostLikeCountDelta() {
+      return isSignedIn()
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.authorAddress == resource.data.authorAddress
+        && request.resource.data.content == resource.data.content
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.deleted == resource.data.deleted
+        && request.resource.data.likeCount is int
+        && request.resource.data.likeCount >= resource.data.likeCount - 1
+        && request.resource.data.likeCount <= resource.data.likeCount + 1
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['likeCount', 'updatedAt']);
+    }
+
+    function validFriendRequestCreate() {
+      return hasOnlyKeys(request.resource.data, ['fromUid', 'toUid', 'status', 'createdAt', 'respondedAt'])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid is string
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.respondedAt == null;
+    }
+
+    function validFriendRequestAccept() {
+      return request.auth.uid == resource.data.toUid
+        && request.resource.data.fromUid == resource.data.fromUid
+        && request.resource.data.toUid == resource.data.toUid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'respondedAt']);
+    }
+
+    function validFriendshipCreate(friendshipId) {
+      return hasOnlyKeys(request.resource.data, ['users', 'createdAt'])
+        && request.resource.data.users is list
+        && request.resource.data.users.size() == 2
+        && request.resource.data.users[0] is string
+        && request.resource.data.users[1] is string
+        && request.resource.data.users[0] < request.resource.data.users[1]
+        && friendshipId == request.resource.data.users[0] + '_' + request.resource.data.users[1]
+        && request.auth.uid in request.resource.data.users;
+    }
+
+    function validPostLikeCreate() {
+      return hasOnlyKeys(request.resource.data, ['postId', 'userUid', 'createdAt'])
+        && request.resource.data.userUid == request.auth.uid
+        && request.resource.data.postId is string
+        && request.resource.data.postId.size() > 0;
+    }
+
+    function validNotificationCreate() {
+      return hasOnlyKeys(request.resource.data, ['recipientUid', 'actorUid', 'postId', 'type', 'read', 'createdAt'])
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.recipientUid is string
+        && request.resource.data.recipientUid != request.auth.uid
+        && request.resource.data.type == 'post_liked'
+        && request.resource.data.read == false
+        && request.resource.data.postId is string;
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(uid) && validUserCreate(uid);
+      allow update: if isOwnerProfileUpdate(uid) || isCounterOnlyExternalUpdate(uid);
+      allow delete: if false;
+    }
+
+    match /addresses/{address} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && isAddress(address)
+        && hasOnlyKeys(request.resource.data, ['uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    match /friendRequests/{requestId} {
+      allow read: if isSignedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+      allow create: if isSignedIn() && validFriendRequestCreate();
+      allow update: if isSignedIn() && validFriendRequestAccept();
+      allow delete: if false;
+    }
+
+    match /friendships/{friendshipId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.users;
+      allow create: if isSignedIn() && validFriendshipCreate(friendshipId);
+      allow delete: if isSignedIn() && request.auth.uid in resource.data.users;
+      allow update: if false;
+    }
+
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && validPostCreate(postId);
+      allow update: if isSignedIn() && (isPostSoftDeleteByAuthor() || isPostLikeCountDelta());
+      allow delete: if false;
+    }
+
+    match /postLikes/{likeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && validPostLikeCreate();
+      allow delete: if isSignedIn() && resource.data.userUid == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.recipientUid == request.auth.uid;
+      allow create: if isSignedIn() && validNotificationCreate();
+      allow update: if isSignedIn()
+        && resource.data.recipientUid == request.auth.uid
+        && request.resource.data.recipientUid == resource.data.recipientUid
+        && request.resource.data.actorUid == resource.data.actorUid
+        && request.resource.data.postId == resource.data.postId
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.read == true
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['read']);
+      allow delete: if false;
+    }
+  }
+}
