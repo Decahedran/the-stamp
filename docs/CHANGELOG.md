@@ -264,6 +264,16 @@
 - `npm run typecheck` passed.
 - `npm run build` passed.
 
+### Changed (launch patch wave)
+- Upgraded `next` from `14.2.15` to patched `14.2.35`.
+- Aligned `eslint-config-next` to `14.2.35`.
+- Added `vercel.json` with Next framework config and explicit `.next` output directory to override incorrect `build` output expectation in deployment flow.
+
+### Validation (launch patch wave)
+- `npm run lint` passed.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+
 ### Decisions Captured
 - Feed is strict 24-hour rolling window.
 - `@ddress` uniqueness + weekly change cooldown.

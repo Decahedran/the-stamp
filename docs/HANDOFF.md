@@ -66,6 +66,7 @@
 - [x] Realtime feed updates added for friend/self postcards
 - [x] Notification deep-linking to individual postcard route implemented
 - [x] Realtime single-post updates implemented on postcard detail route
+- [x] Launch patch applied: Next.js upgraded to patched 14.2.35 + Vercel output config added
 
 ## Implemented File Highlights
 
