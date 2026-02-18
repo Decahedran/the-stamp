@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { useAuth } from "@/components/layout/auth-provider";
-import { deleteCurrentUserAccount, signOutCurrentUser, signUpWithEmail } from "@/lib/services/auth-service";
+import { signOutCurrentUser, signUpWithEmail } from "@/lib/services/auth-service";
 import { createInitialUserProfile, isAddressAvailable } from "@/lib/services/profile-service";
 import { addressSchema, displayNameSchema, emailSchema, passwordSchema } from "@/lib/utils/validation";
 
@@ -49,8 +49,6 @@ export default function SignUpPage() {
     setError("");
     setLoading(true);
 
-    let created = false;
-
     try {
       const parsed = signUpSchema.parse({
         displayName,
@@ -66,30 +64,32 @@ export default function SignUpPage() {
       }
 
       const authUser = await signUpWithEmail(parsed.email, parsed.password, parsed.displayName);
-      created = true;
 
-      await createInitialUserProfile({
-        uid: authUser.uid,
-        email: parsed.email,
-        displayName: parsed.displayName,
-        address: parsed.address
-      });
+      const createProfile = async () => {
+        await createInitialUserProfile({
+          uid: authUser.uid,
+          email: parsed.email,
+          displayName: parsed.displayName,
+          address: parsed.address
+        });
+      };
+
+      try {
+        await createProfile();
+      } catch {
+        await authUser.getIdToken(true);
+        await createProfile();
+      }
 
       await signOutCurrentUser();
       setSuccess(true);
     } catch (caught) {
-      if (created) {
-        try {
-          await deleteCurrentUserAccount();
-        } catch {
-          // no-op cleanup best effort
-        }
-      }
-
       if (caught instanceof z.ZodError) {
         setError(caught.issues[0]?.message ?? "Please check your input and try again.");
       } else if (caught instanceof Error) {
-        setError(caught.message);
+        setError(
+          `${caught.message} If this keeps happening, your account may still exist in Firebase Auth even if profile setup failed.`
+        );
       } else {
         setError("Unable to create your account right now.");
       }
