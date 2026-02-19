@@ -66,16 +66,8 @@ export async function deleteOwnPost(postId: string, actorUid: string) {
       throw new Error("Post already deleted");
     }
 
-    const likeCount = Number(postData.likeCount ?? 0);
-
     tx.update(postRef, {
       deleted: true,
-      updatedAt: serverTimestamp()
-    });
-
-    tx.update(doc(db, "users", actorUid), {
-      postCount: increment(-1),
-      totalLikesReceived: increment(-likeCount),
       updatedAt: serverTimestamp()
     });
   });

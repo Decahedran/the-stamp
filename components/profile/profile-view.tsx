@@ -245,7 +245,6 @@ export function ProfileView({ address }: ProfileViewProps) {
 
                       const previousPosts = posts;
                       const previousLikedByMe = likedByMe;
-                      const previousProfile = profile;
 
                       setDeletingPostId(targetPost.id);
                       setError("");
@@ -255,22 +254,12 @@ export function ProfileView({ address }: ProfileViewProps) {
                         delete next[targetPost.id];
                         return next;
                       });
-                      setProfile((previous) =>
-                        previous
-                          ? {
-                              ...previous,
-                              postCount: Math.max(0, previous.postCount - 1),
-                              totalLikesReceived: Math.max(0, previous.totalLikesReceived - targetPost.likeCount)
-                            }
-                          : previous
-                      );
 
                       try {
                         await deleteOwnPost(targetPost.id, user.uid);
                       } catch (caught) {
                         setPosts(previousPosts);
                         setLikedByMe(previousLikedByMe);
-                        setProfile(previousProfile);
                         setError(caught instanceof Error ? caught.message : "Could not delete postcard.");
                       } finally {
                         setDeletingPostId((previous) => (previous === targetPost.id ? null : previous));
