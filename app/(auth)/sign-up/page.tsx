@@ -117,10 +117,14 @@ export default function SignUpPage() {
           <input
             className="mt-1 w-full rounded border border-stamp-muted px-3 py-2"
             onChange={(event) => setAddress(event.target.value)}
-            placeholder="your_address"
+            placeholder="derek_ink"
             required
             value={address}
           />
+          <p className="mt-1 text-xs text-stamp-ink/65">
+            This is your public username handle, not your physical address. Examples: <strong>@derek_ink</strong>,{" "}
+            <strong>@stampfan23</strong>, <strong>@postcard_pilot</strong>.
+          </p>
         </label>
 
         <label className="block text-sm">
