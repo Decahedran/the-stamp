@@ -80,6 +80,25 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['totalLikesReceived', 'updatedAt']);
     }
 
+    function isOwnerCounterUpdate(uid) {
+      return isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.displayName == resource.data.displayName
+        && request.resource.data.address == resource.data.address
+        && request.resource.data.bio == resource.data.bio
+        && request.resource.data.photoUrl == resource.data.photoUrl
+        && request.resource.data.backgroundUrl == resource.data.backgroundUrl
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.addressLastChangedAt == resource.data.addressLastChangedAt
+        && request.resource.data.emailVerified == resource.data.emailVerified
+        && request.resource.data.postCount is int
+        && request.resource.data.postCount >= resource.data.postCount - 1
+        && request.resource.data.postCount <= resource.data.postCount + 1
+        && request.resource.data.totalLikesReceived is int
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['postCount', 'totalLikesReceived', 'updatedAt']);
+    }
+
     function validUserCreate(uid) {
       return hasOnlyKeys(request.resource.data, [
           'uid',
@@ -211,7 +230,7 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isSignedIn();
       allow create: if isOwner(uid) && validUserCreate(uid);
-      allow update: if isOwnerProfileUpdate(uid) || isCounterOnlyExternalUpdate(uid);
+      allow update: if isOwnerProfileUpdate(uid) || isOwnerCounterUpdate(uid) || isCounterOnlyExternalUpdate(uid);
       allow delete: if false;
     }
 

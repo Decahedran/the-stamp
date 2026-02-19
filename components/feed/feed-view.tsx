@@ -177,6 +177,7 @@ export function FeedView() {
             displayName={authorDisplayNames[post.authorUid]}
             key={post.id}
             likedByMe={Boolean(likedByMe[post.id])}
+            profileHref={`/profile/${post.authorAddress}`}
             onToggleLike={async (targetPost) => {
               const wasLiked = Boolean(likedByMe[targetPost.id]);
 
