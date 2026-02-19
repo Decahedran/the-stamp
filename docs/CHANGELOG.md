@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-02-19
+
+### Changed (auth policy simplification)
+- Removed app-level email verification enforcement for v1 testing flow.
+- Sign-up now creates account/profile and proceeds directly without verification gate UX.
+- Sign-in now routes authenticated users directly to app routes without verification checks.
+- `components/layout/require-auth.tsx` now enforces authentication only.
+
+### Changed (friends UX + permissions)
+- Moved friend management out of feed into dedicated friends route:
+  - added `app/friends/page.tsx`
+  - added `components/friends/friends-view.tsx`
+  - removed friend panel from `components/feed/feed-view.tsx`
+  - added `/friends` link in `components/layout/top-nav.tsx`
+- Hardened friend-request creation service to derive `fromUid` from authenticated user context.
+- Updated friendship existence check to use query-based lookup to avoid permission-denied edge cases on direct friendship doc reads.
+
+### Changed (Firestore rules)
+- Updated `addresses` rules to allow safe pre-signup availability checks:
+  - `allow get: if isAddress(address)`
+  - `allow list: if isSignedIn()`
+
+### Docs
+- Updated `README.md`, `docs/HANDOFF.md`, and `docs/FIREBASE_SETUP.md` to reflect current auth behavior and Firebase Auth verification-toggle limitations.
+
 ## 2026-02-18
 
 ### Added

@@ -5,7 +5,7 @@ A small-scale social platform with a postcard aesthetic where people share short
 ## Core v1 Features
 
 - Email/password auth via Firebase Auth
-- Email verification required
+- Email verification is optional (currently not enforced by the app)
 - Unique public handle called `@ddress`
 - Friend request system (request/accept/remove)
 - Feed shows only:

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/layout/auth-provider";
-import { FriendPanel } from "@/components/friends/friend-panel";
 import { PostComposer } from "@/components/posts/post-composer";
 import { PostCard } from "@/components/posts/post-card";
 import { subscribeToFriendIds } from "@/lib/services/friendship-service";
@@ -161,13 +160,6 @@ export function FeedView() {
           }}
         />
       ) : null}
-
-      <FriendPanel
-        currentUid={user.uid}
-        onChanged={async () => {
-          // realtime listeners handle state updates; intentionally no-op
-        }}
-      />
 
       {loading ? <p className="text-sm text-stamp-ink/70">Loading feed postcards...</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}

@@ -107,7 +107,7 @@ export function FriendPanel({ currentUid, onChanged }: FriendPanelProps) {
       setSearchAddress("");
       setNotice("Sending friend request...");
 
-      await sendFriendRequest(currentUid, targetUid);
+      await sendFriendRequest(targetUid);
       setNotice("Friend request sent.");
     } catch (caught) {
       if (caught instanceof Error) {

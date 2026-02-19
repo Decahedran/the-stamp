@@ -9,7 +9,8 @@
 
 - Authentication > Sign-in methods
 - Enable **Email/Password**
-- In templates/settings, configure email verification flow
+- Optional: configure email verification templates/settings if you plan to send verification emails later
+- Note: Firebase Auth does not provide a single global "disable verification requirement" toggle for Email/Password. Verification enforcement is controlled in app logic.
 
 ## 3) Create Firestore Database
 

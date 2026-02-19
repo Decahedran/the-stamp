@@ -2,7 +2,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -13,20 +12,25 @@ import {
   type Unsubscribe
 } from "firebase/firestore";
 import type { FriendRequestRecord } from "@/lib/types/db";
-import { db } from "@/lib/firebase/client";
+import { auth, db } from "@/lib/firebase/client";
 
 function createFriendshipId(a: string, b: string): string {
   return [a, b].sort().join("_");
 }
 
-export async function sendFriendRequest(fromUid: string, toUid: string) {
-  if (fromUid === toUid) {
+export async function sendFriendRequest(toUid: string) {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid) {
+    throw new Error("You must be signed in to send a friend request");
+  }
+
+  if (currentUid === toUid) {
     throw new Error("You cannot friend yourself");
   }
 
   const requestRef = doc(collection(db, "friendRequests"));
   await setDoc(requestRef, {
-    fromUid,
+    fromUid: currentUid,
     toUid,
     status: "pending",
     createdAt: serverTimestamp(),
@@ -55,8 +59,14 @@ export async function removeFriend(uidA: string, uidB: string) {
 }
 
 export async function areFriends(uidA: string, uidB: string): Promise<boolean> {
-  const snapshot = await getDoc(doc(db, "friendships", createFriendshipId(uidA, uidB)));
-  return snapshot.exists();
+  const snapshots = await getDocs(
+    query(collection(db, "friendships"), where("users", "array-contains", uidA))
+  );
+
+  return snapshots.docs.some((snapshot) => {
+    const users = snapshot.data().users as string[];
+    return users.includes(uidB);
+  });
 }
 
 export async function getFriendIds(uid: string): Promise<string[]> {

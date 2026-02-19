@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { z } from "zod";
 import { useAuth } from "@/components/layout/auth-provider";
-import { resendVerificationEmail, signInWithEmail, signOutCurrentUser } from "@/lib/services/auth-service";
+import { signInWithEmail } from "@/lib/services/auth-service";
 import { emailSchema, passwordSchema } from "@/lib/utils/validation";
 
 const signInSchema = z.object({
@@ -16,17 +16,16 @@ const signInSchema = z.object({
 function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [needsVerification, setNeedsVerification] = useState(false);
 
   useEffect(() => {
-    if (user?.emailVerified) {
+    if (user) {
       const nextPath = searchParams.get("next") || "/feed";
       router.replace(nextPath);
     }
@@ -40,14 +39,7 @@ function SignInContent() {
 
     try {
       const parsed = signInSchema.parse({ email, password });
-      const signedInUser = await signInWithEmail(parsed.email, parsed.password);
-
-      if (!signedInUser.emailVerified) {
-        setNeedsVerification(true);
-        setNotice("Please verify your email before entering the feed.");
-        return;
-      }
-
+      await signInWithEmail(parsed.email, parsed.password);
       const nextPath = searchParams.get("next") || "/feed";
       router.replace(nextPath);
     } catch (caught) {
@@ -61,60 +53,6 @@ function SignInContent() {
     } finally {
       setLoading(false);
     }
-  }
-
-  if (needsVerification && user) {
-    return (
-      <section className="space-y-4 rounded-postcard border border-stamp-muted bg-white p-6 shadow-postcard">
-        <h1 className="text-2xl font-semibold">Verify your email first</h1>
-        <p className="text-sm text-stamp-ink/80">
-          Your account is real, but your email is not verified yet: <strong>{user.email}</strong>
-        </p>
-        {notice ? <p className="text-sm text-stamp-accent">{notice}</p> : null}
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="rounded border border-stamp-muted px-3 py-2 hover:bg-stamp-muted"
-            onClick={() => {
-              void (async () => {
-                await resendVerificationEmail();
-                setNotice("Verification email re-sent.");
-              })();
-            }}
-            type="button"
-          >
-            Re-send verification email
-          </button>
-
-          <button
-            className="rounded border border-stamp-muted px-3 py-2 hover:bg-stamp-muted"
-            onClick={() => {
-              void (async () => {
-                await refreshUser();
-                setNotice("Refreshed account status.");
-              })();
-            }}
-            type="button"
-          >
-            I verified, refresh
-          </button>
-
-          <button
-            className="rounded border border-stamp-muted px-3 py-2 hover:bg-stamp-muted"
-            onClick={() => {
-              void (async () => {
-                await signOutCurrentUser();
-                setNeedsVerification(false);
-                setNotice("");
-              })();
-            }}
-            type="button"
-          >
-            Sign out
-          </button>
-        </div>
-      </section>
-    );
   }
 
   return (

@@ -210,7 +210,8 @@ service cloud.firestore {
     }
 
     match /addresses/{address} {
-      allow read: if isSignedIn();
+      allow get: if isAddress(address);
+      allow list: if isSignedIn();
       allow create: if isSignedIn()
         && isAddress(address)
         && hasOnlyKeys(request.resource.data, ['uid', 'createdAt'])

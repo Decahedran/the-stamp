@@ -11,7 +11,6 @@ import { auth } from "@/lib/firebase/client";
 export async function signUpWithEmail(email: string, password: string, displayName: string) {
   const credentials = await createUserWithEmailAndPassword(auth, email, password);
   await updateProfile(credentials.user, { displayName });
-  await sendEmailVerification(credentials.user);
   await credentials.user.getIdToken(true);
   return credentials.user;
 }

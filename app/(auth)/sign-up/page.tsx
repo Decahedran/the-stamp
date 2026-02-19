@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { useAuth } from "@/components/layout/auth-provider";
-import { signOutCurrentUser, signUpWithEmail } from "@/lib/services/auth-service";
+import { signUpWithEmail } from "@/lib/services/auth-service";
 import { createInitialUserProfile, isAddressAvailable } from "@/lib/services/profile-service";
 import { addressSchema, displayNameSchema, emailSchema, passwordSchema } from "@/lib/utils/validation";
 
@@ -34,12 +34,11 @@ export default function SignUpPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
 
   const normalizedAddress = useMemo(() => address.trim().toLowerCase().replace(/^@+/, ""), [address]);
 
   useEffect(() => {
-    if (user?.emailVerified) {
+    if (user) {
       router.replace("/feed");
     }
   }, [router, user]);
@@ -81,8 +80,7 @@ export default function SignUpPage() {
         await createProfile();
       }
 
-      await signOutCurrentUser();
-      setSuccess(true);
+      router.replace("/feed");
     } catch (caught) {
       if (caught instanceof z.ZodError) {
         setError(caught.issues[0]?.message ?? "Please check your input and try again.");
@@ -96,21 +94,6 @@ export default function SignUpPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  if (success) {
-    return (
-      <section className="space-y-4 rounded-postcard border border-stamp-muted bg-white p-6 shadow-postcard">
-        <h1 className="text-2xl font-semibold">Check your mailbox 📬</h1>
-        <p className="text-sm text-stamp-ink/80">
-          Your account has been created. We sent a verification email to <strong>{email}</strong>.
-        </p>
-        <p className="text-sm text-stamp-ink/80">After verifying, sign in to enter The Stamp.</p>
-        <Link className="inline-block rounded border border-stamp-muted px-3 py-2 hover:bg-stamp-muted" href="/sign-in">
-          Go to sign in
-        </Link>
-      </section>
-    );
   }
 
   return (
