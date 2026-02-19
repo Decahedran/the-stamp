@@ -7,8 +7,25 @@
 }
 
 body {
-  @apply bg-stamp-paper text-stamp-ink;
+  @apply text-stamp-ink;
   font-family: Georgia, "Times New Roman", serif;
+}
+
+body[data-theme="theme:linen"],
+body:not([data-theme]) {
+  @apply bg-stamp-paper;
+}
+
+body[data-theme="theme:rose"] {
+  background-color: #fff1f5;
+}
+
+body[data-theme="theme:sea"] {
+  background-color: #eff6ff;
+}
+
+body[data-theme="theme:forest"] {
+  background-color: #ecfdf5;
 }
 
 a {

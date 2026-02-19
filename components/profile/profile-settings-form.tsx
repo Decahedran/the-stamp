@@ -10,6 +10,7 @@ import {
   updateProfileFields
 } from "@/lib/services/profile-service";
 import type { UserProfile } from "@/lib/types/db";
+import { DEFAULT_THEME, THEMES, resolveTheme } from "@/lib/utils/theme";
 import { addressSchema, bioSchema, displayNameSchema } from "@/lib/utils/validation";
 import { z } from "zod";
 
@@ -22,20 +23,13 @@ const addressOnlySchema = z.object({
   address: addressSchema
 });
 
-const THEMES = [
-  { key: "theme:linen", label: "Linen (default)" },
-  { key: "theme:rose", label: "Rose" },
-  { key: "theme:sea", label: "Sea" },
-  { key: "theme:forest", label: "Forest" }
-];
-
 export function ProfileSettingsForm() {
   const { user } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
-  const [theme, setTheme] = useState("theme:linen");
+  const [theme, setTheme] = useState(DEFAULT_THEME);
   const [newAddress, setNewAddress] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -65,7 +59,7 @@ export function ProfileSettingsForm() {
       setProfile(data);
       setDisplayName(data.displayName);
       setBio(data.bio);
-      setTheme(data.backgroundUrl || "theme:linen");
+      setTheme(resolveTheme(data.backgroundUrl));
       setNewAddress(data.address);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load profile settings.");
@@ -100,8 +94,8 @@ export function ProfileSettingsForm() {
       await updateProfileFields(currentUser.uid, {
         displayName: parsed.displayName,
         bio: parsed.bio,
-        photoUrl: theme,
-        backgroundUrl: theme
+        photoUrl: resolveTheme(theme),
+        backgroundUrl: resolveTheme(theme)
       });
 
       setNotice("Profile updated.");
