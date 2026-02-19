@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   acceptFriendRequest,
   areFriends,
   hasPendingRequestBetween,
-  removeFriend,
   sendFriendRequest,
   subscribeToFriendIds,
   subscribeToIncomingFriendRequests
@@ -159,40 +159,13 @@ export function FriendPanel({ currentUid, onChanged }: FriendPanelProps) {
     }
   }
 
-  async function handleRemove(friendUid: string) {
-    setLoading(true);
-    setNotice("");
-
-    const friendToRemove = friends.find((item) => item.uid === friendUid);
-    if (!friendToRemove) {
-      setLoading(false);
-      return;
-    }
-
-    setFriends((previous) => previous.filter((item) => item.uid !== friendUid));
-
-    try {
-      await removeFriend(currentUid, friendUid);
-      setNotice("Friend removed.");
-      await onChanged();
-    } catch (caught) {
-      setFriends((previous) => {
-        if (previous.some((item) => item.uid === friendToRemove.uid)) {
-          return previous;
-        }
-        return [...previous, friendToRemove];
-      });
-      setNotice(caught instanceof Error ? caught.message : "Could not remove friend.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <section className="space-y-3 rounded-postcard border border-stamp-muted bg-white p-4 shadow-postcard">
       <header className="space-y-1">
         <h2 className="text-lg font-semibold">Friends</h2>
-        <p className="text-xs text-stamp-ink/70">Add by @ddress, accept requests, and manage your friend list.</p>
+        <p className="text-xs text-stamp-ink/70">
+          Add by @ddress, accept requests, and tap a friend to view their profile.
+        </p>
       </header>
 
       <div className="flex gap-2">
@@ -246,20 +219,13 @@ export function FriendPanel({ currentUid, onChanged }: FriendPanelProps) {
           <p className="text-xs text-stamp-ink/65">No friends yet. Add someone to populate your feed.</p>
         ) : (
           friends.map((friend) => (
-            <div className="flex items-center justify-between rounded border border-stamp-muted p-2 text-sm" key={friend.uid}>
-              <span>
-                {friend.displayName} (@{friend.address})
-              </span>
-              <button
-                className="rounded border border-stamp-muted px-2 py-1 text-xs hover:bg-stamp-muted"
-                onClick={() => {
-                  void handleRemove(friend.uid);
-                }}
-                type="button"
-              >
-                Remove
-              </button>
-            </div>
+            <Link
+              className="block rounded border border-stamp-muted p-2 text-sm hover:bg-stamp-muted"
+              href={`/profile/${friend.address}`}
+              key={friend.uid}
+            >
+              {friend.displayName} (@{friend.address})
+            </Link>
           ))
         )}
       </div>

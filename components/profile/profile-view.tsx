@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import { useAuth } from "@/components/layout/auth-provider";
 import { PostCard } from "@/components/posts/post-card";
+import { areFriends, removeFriend } from "@/lib/services/friendship-service";
 import {
   deleteOwnPost,
   getProfilePostsPageByUid,
@@ -28,6 +30,9 @@ export function ProfileView({ address }: ProfileViewProps) {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [friendshipStatus, setFriendshipStatus] = useState<"unknown" | "friend" | "not_friend">("unknown");
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [removingFriend, setRemovingFriend] = useState(false);
   const [error, setError] = useState("");
 
   async function loadInitialProfile() {
@@ -46,6 +51,7 @@ export function ProfileView({ address }: ProfileViewProps) {
         setLikedByMe({});
         setHasMore(false);
         setNextCursor(null);
+        setFriendshipStatus("not_friend");
         return;
       }
 
@@ -65,11 +71,15 @@ export function ProfileView({ address }: ProfileViewProps) {
         }))
       );
 
+      const friendship = targetProfile.uid === user.uid ? false : await areFriends(user.uid, targetProfile.uid);
+
       setProfile(targetProfile);
       setPosts(firstPage.posts);
       setLikedByMe(Object.fromEntries(likePairs.map((item) => [item.postId, item.liked])));
       setNextCursor(firstPage.nextCursor);
       setHasMore(Boolean(firstPage.nextCursor));
+      setFriendshipStatus(friendship ? "friend" : "not_friend");
+      setRemoveConfirmOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load profile.");
     } finally {
@@ -123,6 +133,25 @@ export function ProfileView({ address }: ProfileViewProps) {
 
   const isOwnProfile = profile?.uid === user.uid;
 
+  async function handleRemoveFriend() {
+    if (!profile || isOwnProfile || friendshipStatus !== "friend") {
+      return;
+    }
+
+    setRemovingFriend(true);
+    setError("");
+
+    try {
+      await removeFriend(user.uid, profile.uid);
+      setFriendshipStatus("not_friend");
+      setRemoveConfirmOpen(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not remove friend.");
+    } finally {
+      setRemovingFriend(false);
+    }
+  }
+
   return (
     <section className="space-y-4">
       {loading ? <p className="text-sm text-stamp-ink/70">Loading profile...</p> : null}
@@ -145,6 +174,54 @@ export function ProfileView({ address }: ProfileViewProps) {
               <span>Posts: {profile.postCount}</span>
               <span>Total likes: {profile.totalLikesReceived}</span>
             </div>
+
+            {!isOwnProfile && friendshipStatus === "friend" ? (
+              <div className="pt-1">
+                {!removeConfirmOpen ? (
+                  <button
+                    className="rounded border border-red-300 px-3 py-1 text-xs text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      setRemoveConfirmOpen(true);
+                    }}
+                    type="button"
+                  >
+                    Remove friend
+                  </button>
+                ) : (
+                  <div className="space-y-2 rounded border border-red-200 bg-red-50 p-2">
+                    <p className="text-xs text-red-800">Are you sure? This removes the friendship for both accounts.</p>
+                    <div className="flex gap-2">
+                      <button
+                        className="rounded border border-red-300 px-3 py-1 text-xs text-red-800 hover:bg-red-100 disabled:opacity-60"
+                        disabled={removingFriend}
+                        onClick={() => {
+                          void handleRemoveFriend();
+                        }}
+                        type="button"
+                      >
+                        {removingFriend ? "Removing..." : "Yes, remove"}
+                      </button>
+                      <button
+                        className="rounded border border-stamp-muted bg-white px-3 py-1 text-xs hover:bg-stamp-muted"
+                        disabled={removingFriend}
+                        onClick={() => {
+                          setRemoveConfirmOpen(false);
+                        }}
+                        type="button"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {!isOwnProfile && friendshipStatus === "not_friend" ? (
+              <p className="text-xs text-stamp-ink/65">
+                Not currently friends. <Link href="/friends">Go to Friends</Link> to connect.
+              </p>
+            ) : null}
           </header>
 
           {posts.length === 0 ? (
