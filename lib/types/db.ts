@@ -52,10 +52,12 @@ export interface PostLike {
   createdAt: Timestamp;
 }
 
+export type NotificationType = "post_liked" | "friend_request_received" | "friend_request_accepted";
+
 export interface NotificationItem {
   recipientUid: string;
   actorUid: string;
-  type: "post_liked";
+  type: NotificationType;
   postId: string;
   read: boolean;
   createdAt: Timestamp;

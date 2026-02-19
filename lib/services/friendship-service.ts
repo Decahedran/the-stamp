@@ -12,6 +12,10 @@ import {
   type Unsubscribe
 } from "firebase/firestore";
 import type { FriendRequestRecord } from "@/lib/types/db";
+import {
+  createFriendRequestAcceptedNotification,
+  createFriendRequestReceivedNotification
+} from "@/lib/services/notification-service";
 import { auth, db } from "@/lib/firebase/client";
 
 function createFriendshipId(a: string, b: string): string {
@@ -36,6 +40,11 @@ export async function sendFriendRequest(toUid: string) {
     createdAt: serverTimestamp(),
     respondedAt: null
   });
+
+  await createFriendRequestReceivedNotification({
+    recipientUid: toUid,
+    actorUid: currentUid
+  });
 }
 
 export async function acceptFriendRequest(requestId: string, fromUid: string, toUid: string) {
@@ -51,6 +60,11 @@ export async function acceptFriendRequest(requestId: string, fromUid: string, to
       createdAt: serverTimestamp()
     })
   ]);
+
+  await createFriendRequestAcceptedNotification({
+    recipientUid: fromUid,
+    actorUid: toUid
+  });
 }
 
 export async function removeFriend(uidA: string, uidB: string) {

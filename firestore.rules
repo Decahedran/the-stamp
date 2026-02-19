@@ -192,14 +192,20 @@ service cloud.firestore {
         && request.resource.data.postId.size() > 0;
     }
 
+    function validNotificationType(value) {
+      return value in ['post_liked', 'friend_request_received', 'friend_request_accepted'];
+    }
+
     function validNotificationCreate() {
       return hasOnlyKeys(request.resource.data, ['recipientUid', 'actorUid', 'postId', 'type', 'read', 'createdAt'])
         && request.resource.data.actorUid == request.auth.uid
         && request.resource.data.recipientUid is string
         && request.resource.data.recipientUid != request.auth.uid
-        && request.resource.data.type == 'post_liked'
+        && validNotificationType(request.resource.data.type)
         && request.resource.data.read == false
-        && request.resource.data.postId is string;
+        && request.resource.data.postId is string
+        && ((request.resource.data.type == 'post_liked' && request.resource.data.postId.size() > 0)
+          || (request.resource.data.type != 'post_liked' && request.resource.data.postId == ''));
     }
 
     match /users/{uid} {

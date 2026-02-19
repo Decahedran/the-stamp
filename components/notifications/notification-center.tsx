@@ -84,8 +84,11 @@ export function NotificationCenter() {
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <p className="text-sm">
-                  {item.actorDisplayName ?? "Someone"} ({item.actorAddress ? `@${item.actorAddress}` : "unknown"}) liked one
-                  of your postcards.
+                  {item.type === "post_liked"
+                    ? `${item.actorDisplayName ?? "Someone"} (${item.actorAddress ? `@${item.actorAddress}` : "unknown"}) liked one of your postcards.`
+                    : item.type === "friend_request_received"
+                      ? `${item.actorDisplayName ?? "Someone"} (${item.actorAddress ? `@${item.actorAddress}` : "unknown"}) sent you a friend request.`
+                      : `${item.actorDisplayName ?? "Someone"} (${item.actorAddress ? `@${item.actorAddress}` : "unknown"}) accepted your friend request.`}
                 </p>
                 <p className="text-xs text-stamp-ink/65">{formatTimestamp(item.createdAt)}</p>
               </div>
@@ -103,8 +106,11 @@ export function NotificationCenter() {
             </div>
 
             <p className="mt-2 flex gap-3 text-xs">
-              <Link href={`/post/${item.postId}`}>View postcard</Link>
+              {item.type === "post_liked" ? <Link href={`/post/${item.postId}`}>View postcard</Link> : null}
               {item.actorAddress ? <Link href={`/profile/${item.actorAddress}`}>View their profile</Link> : null}
+              {(item.type === "friend_request_received" || item.type === "friend_request_accepted") ? (
+                <Link href="/friends">Open friends</Link>
+              ) : null}
             </p>
           </article>
         ))}

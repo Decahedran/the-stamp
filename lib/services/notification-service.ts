@@ -14,10 +14,11 @@ import {
 import type { NotificationItem, WithId } from "@/lib/types/db";
 import { db } from "@/lib/firebase/client";
 
-export async function createPostLikedNotification(params: {
+async function createNotification(params: {
   recipientUid: string;
   actorUid: string;
-  postId: string;
+  type: NotificationItem["type"];
+  postId?: string;
 }) {
   if (params.recipientUid === params.actorUid) {
     return;
@@ -26,10 +27,45 @@ export async function createPostLikedNotification(params: {
   await addDoc(collection(db, "notifications"), {
     recipientUid: params.recipientUid,
     actorUid: params.actorUid,
-    postId: params.postId,
-    type: "post_liked",
+    postId: params.postId ?? "",
+    type: params.type,
     read: false,
     createdAt: serverTimestamp()
+  });
+}
+
+export async function createPostLikedNotification(params: {
+  recipientUid: string;
+  actorUid: string;
+  postId: string;
+}) {
+  await createNotification({
+    recipientUid: params.recipientUid,
+    actorUid: params.actorUid,
+    type: "post_liked",
+    postId: params.postId
+  });
+}
+
+export async function createFriendRequestReceivedNotification(params: {
+  recipientUid: string;
+  actorUid: string;
+}) {
+  await createNotification({
+    recipientUid: params.recipientUid,
+    actorUid: params.actorUid,
+    type: "friend_request_received"
+  });
+}
+
+export async function createFriendRequestAcceptedNotification(params: {
+  recipientUid: string;
+  actorUid: string;
+}) {
+  await createNotification({
+    recipientUid: params.recipientUid,
+    actorUid: params.actorUid,
+    type: "friend_request_accepted"
   });
 }
 
