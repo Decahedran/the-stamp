@@ -10,6 +10,7 @@ type PostCardProps = {
   profileHref?: string;
   showDelete?: boolean;
   likedByMe?: boolean;
+  deleteDisabled?: boolean;
   onToggleLike: (post: PostCardRecord) => Promise<void>;
   onDelete?: (post: PostCardRecord) => Promise<void>;
 };
@@ -20,6 +21,7 @@ export function PostCard({
   profileHref,
   showDelete = false,
   likedByMe = false,
+  deleteDisabled = false,
   onToggleLike,
   onDelete
 }: PostCardProps) {
@@ -54,13 +56,14 @@ export function PostCard({
 
         {showDelete && onDelete ? (
           <button
-            className="rounded border border-red-300 px-3 py-1 text-red-700 hover:bg-red-50"
+            className="rounded border border-red-300 px-3 py-1 text-red-700 hover:bg-red-50 disabled:opacity-60"
+            disabled={deleteDisabled}
             onClick={() => {
               void onDelete(post);
             }}
             type="button"
           >
-            Delete
+            {deleteDisabled ? "Deleting..." : "Delete"}
           </button>
         ) : null}
       </footer>

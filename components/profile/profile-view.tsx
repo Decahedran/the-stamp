@@ -33,6 +33,7 @@ export function ProfileView({ address }: ProfileViewProps) {
   const [friendshipStatus, setFriendshipStatus] = useState<"unknown" | "friend" | "not_friend">("unknown");
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const [removingFriend, setRemovingFriend] = useState(false);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   async function loadInitialProfile() {
@@ -246,6 +247,7 @@ export function ProfileView({ address }: ProfileViewProps) {
                       const previousLikedByMe = likedByMe;
                       const previousProfile = profile;
 
+                      setDeletingPostId(targetPost.id);
                       setError("");
                       setPosts((previous) => previous.filter((item) => item.id !== targetPost.id));
                       setLikedByMe((previous) => {
@@ -270,6 +272,8 @@ export function ProfileView({ address }: ProfileViewProps) {
                         setLikedByMe(previousLikedByMe);
                         setProfile(previousProfile);
                         setError(caught instanceof Error ? caught.message : "Could not delete postcard.");
+                      } finally {
+                        setDeletingPostId((previous) => (previous === targetPost.id ? null : previous));
                       }
                     }}
                     onToggleLike={async (targetPost) => {
@@ -310,6 +314,7 @@ export function ProfileView({ address }: ProfileViewProps) {
                         setError(caught instanceof Error ? caught.message : "Could not update like.");
                       }
                     }}
+                    deleteDisabled={deletingPostId === post.id}
                     post={post}
                     showDelete={isOwnProfile}
                   />

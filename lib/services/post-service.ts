@@ -62,6 +62,10 @@ export async function deleteOwnPost(postId: string, actorUid: string) {
       throw new Error("You can only delete your own post");
     }
 
+    if (postData.deleted === true) {
+      throw new Error("Post already deleted");
+    }
+
     const likeCount = Number(postData.likeCount ?? 0);
 
     tx.update(postRef, {
