@@ -25,7 +25,7 @@ export function TopNav() {
       <nav className="flex items-center gap-3 text-sm">
         {!loading && user ? (
           <>
-            <Link href="/feed">Feed</Link>
+            <Link href="/feed">Mailbox</Link>
             <Link href="/friends">Friends</Link>
             <Link className="inline-flex items-center" href="/notifications">
               Notifications

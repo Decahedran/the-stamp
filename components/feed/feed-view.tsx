@@ -142,7 +142,7 @@ export function FeedView() {
   return (
     <section className="space-y-4">
       <header className="rounded-postcard border border-stamp-muted bg-white p-4 shadow-postcard">
-        <h1 className="text-2xl font-semibold">Feed</h1>
+        <h1 className="text-2xl font-semibold">Mailbox</h1>
         <p className="text-sm text-stamp-ink/75">
           Last 24 hours. Friends + you. Newest first, like civilized postcard people.
         </p>
@@ -161,7 +161,7 @@ export function FeedView() {
         />
       ) : null}
 
-      {loading ? <p className="text-sm text-stamp-ink/70">Loading feed postcards...</p> : null}
+      {loading ? <p className="text-sm text-stamp-ink/70">Loading mailbox postcards...</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
       {!loading && posts.length === 0 ? (
