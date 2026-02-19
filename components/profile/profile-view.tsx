@@ -134,7 +134,8 @@ export function ProfileView({ address }: ProfileViewProps) {
   const isOwnProfile = profile?.uid === user.uid;
 
   async function handleRemoveFriend() {
-    if (!profile || isOwnProfile || friendshipStatus !== "friend") {
+    const currentUser = user;
+    if (!currentUser || !profile || isOwnProfile || friendshipStatus !== "friend") {
       return;
     }
 
@@ -142,7 +143,7 @@ export function ProfileView({ address }: ProfileViewProps) {
     setError("");
 
     try {
-      await removeFriend(user.uid, profile.uid);
+      await removeFriend(currentUser.uid, profile.uid);
       setFriendshipStatus("not_friend");
       setRemoveConfirmOpen(false);
     } catch (caught) {
