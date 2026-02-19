@@ -62,7 +62,7 @@ export function PostComposer({ authorUid, authorAddress, onPosted }: PostCompose
           disabled={loading}
           type="submit"
         >
-          {loading ? "Stamping..." : "Post"}
+          {loading ? "Stamping..." : "Send Postcard"}
         </button>
       </div>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
