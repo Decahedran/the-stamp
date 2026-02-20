@@ -82,21 +82,11 @@ service cloud.firestore {
 
     function isOwnerCounterUpdate(uid) {
       return isOwner(uid)
-        && request.resource.data.uid == uid
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.displayName == resource.data.displayName
-        && request.resource.data.address == resource.data.address
-        && request.resource.data.bio == resource.data.bio
-        && request.resource.data.photoUrl == resource.data.photoUrl
-        && request.resource.data.backgroundUrl == resource.data.backgroundUrl
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.addressLastChangedAt == resource.data.addressLastChangedAt
-        && request.resource.data.emailVerified == resource.data.emailVerified
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['postCount', 'totalLikesReceived', 'updatedAt'])
         && request.resource.data.postCount is int
         && request.resource.data.postCount >= resource.data.postCount - 1
         && request.resource.data.postCount <= resource.data.postCount + 1
-        && request.resource.data.totalLikesReceived is int
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['postCount', 'totalLikesReceived', 'updatedAt']);
+        && request.resource.data.totalLikesReceived is int;
     }
 
     function validUserCreate(uid) {
@@ -157,18 +147,18 @@ service cloud.firestore {
         && request.resource.data.content == resource.data.content
         && request.resource.data.likeCount == resource.data.likeCount
         && request.resource.data.createdAt == resource.data.createdAt
-        && resource.data.deleted == false
         && request.resource.data.deleted == true
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['deleted', 'updatedAt']);
     }
 
     function isPostLikeCountDelta() {
       return isSignedIn()
+        && resource.data.deleted == false
         && request.resource.data.authorUid == resource.data.authorUid
         && request.resource.data.authorAddress == resource.data.authorAddress
         && request.resource.data.content == resource.data.content
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.deleted == resource.data.deleted
+        && request.resource.data.deleted == false
         && request.resource.data.likeCount is int
         && request.resource.data.likeCount >= resource.data.likeCount - 1
         && request.resource.data.likeCount <= resource.data.likeCount + 1
@@ -212,19 +202,105 @@ service cloud.firestore {
     }
 
     function validNotificationType(value) {
-      return value in ['post_liked', 'friend_request_received', 'friend_request_accepted'];
+      return value in [
+        'post_liked',
+        'post_commented',
+        'comment_replied',
+        'friend_request_received',
+        'friend_request_accepted'
+      ];
     }
 
     function validNotificationCreate() {
-      return hasOnlyKeys(request.resource.data, ['recipientUid', 'actorUid', 'postId', 'type', 'read', 'createdAt'])
+      return hasOnlyKeys(request.resource.data, ['recipientUid', 'actorUid', 'postId', 'commentId', 'type', 'read', 'createdAt'])
         && request.resource.data.actorUid == request.auth.uid
         && request.resource.data.recipientUid is string
         && request.resource.data.recipientUid != request.auth.uid
         && validNotificationType(request.resource.data.type)
         && request.resource.data.read == false
         && request.resource.data.postId is string
-        && ((request.resource.data.type == 'post_liked' && request.resource.data.postId.size() > 0)
-          || (request.resource.data.type != 'post_liked' && request.resource.data.postId == ''));
+        && request.resource.data.commentId is string
+        && ((request.resource.data.type == 'post_liked'
+            && request.resource.data.postId.size() > 0
+            && request.resource.data.commentId == '')
+          || (request.resource.data.type in ['post_commented', 'comment_replied']
+            && request.resource.data.postId.size() > 0
+            && request.resource.data.commentId.size() > 0)
+          || (request.resource.data.type in ['friend_request_received', 'friend_request_accepted']
+            && request.resource.data.postId == ''
+            && request.resource.data.commentId == ''));
+    }
+
+    function validCommentCreate(commentId) {
+      let isReply = request.resource.data.parentCommentId != '';
+      let postDoc = get(/databases/$(database)/documents/posts/$(request.resource.data.postId));
+
+      return hasOnlyKeys(request.resource.data, [
+          'postId',
+          'authorUid',
+          'authorAddress',
+          'content',
+          'parentCommentId',
+          'rootCommentId',
+          'replyCount',
+          'hiddenByPostOwner',
+          'deletedByAuthor',
+          'deletedByPostOwner',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.postId is string
+        && request.resource.data.postId.size() > 0
+        && postDoc.exists()
+        && postDoc.data.deleted == false
+        && request.resource.data.authorUid == request.auth.uid
+        && isAddress(request.resource.data.authorAddress)
+        && request.resource.data.content is string
+        && request.resource.data.content.size() >= 1
+        && request.resource.data.content.size() <= 280
+        && request.resource.data.parentCommentId is string
+        && request.resource.data.rootCommentId is string
+        && request.resource.data.replyCount == 0
+        && request.resource.data.hiddenByPostOwner == false
+        && request.resource.data.deletedByAuthor == false
+        && request.resource.data.deletedByPostOwner == false
+        && ((isReply && request.resource.data.rootCommentId.size() > 0)
+          || (!isReply && request.resource.data.rootCommentId == commentId));
+    }
+
+    function isOwnCommentSoftDelete() {
+      return request.auth.uid == resource.data.authorUid
+        && request.resource.data.postId == resource.data.postId
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.authorAddress == resource.data.authorAddress
+        && request.resource.data.content == resource.data.content
+        && request.resource.data.parentCommentId == resource.data.parentCommentId
+        && request.resource.data.rootCommentId == resource.data.rootCommentId
+        && request.resource.data.replyCount == resource.data.replyCount
+        && request.resource.data.hiddenByPostOwner == resource.data.hiddenByPostOwner
+        && request.resource.data.deletedByPostOwner == resource.data.deletedByPostOwner
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.deletedByAuthor == true
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['deletedByAuthor', 'updatedAt']);
+    }
+
+    function isCommentModerationByPostOwner() {
+      let postDoc = get(/databases/$(database)/documents/posts/$(resource.data.postId));
+
+      return postDoc.exists()
+        && postDoc.data.authorUid == request.auth.uid
+        && request.resource.data.postId == resource.data.postId
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.authorAddress == resource.data.authorAddress
+        && request.resource.data.content == resource.data.content
+        && request.resource.data.parentCommentId == resource.data.parentCommentId
+        && request.resource.data.rootCommentId == resource.data.rootCommentId
+        && request.resource.data.replyCount == resource.data.replyCount
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.deletedByAuthor == resource.data.deletedByAuthor
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['hiddenByPostOwner', 'deletedByPostOwner', 'updatedAt'])
+        && request.resource.data.hiddenByPostOwner is bool
+        && request.resource.data.deletedByPostOwner is bool;
     }
 
     match /users/{uid} {
@@ -273,6 +349,13 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    match /comments/{commentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && validCommentCreate(commentId);
+      allow update: if isSignedIn() && (isOwnCommentSoftDelete() || isCommentModerationByPostOwner());
+      allow delete: if false;
+    }
+
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && resource.data.recipientUid == request.auth.uid;
       allow create: if isSignedIn() && validNotificationCreate();
@@ -281,6 +364,7 @@ service cloud.firestore {
         && request.resource.data.recipientUid == resource.data.recipientUid
         && request.resource.data.actorUid == resource.data.actorUid
         && request.resource.data.postId == resource.data.postId
+        && request.resource.data.commentId == resource.data.commentId
         && request.resource.data.type == resource.data.type
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.read == true

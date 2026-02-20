@@ -44,6 +44,9 @@ export function PostCard({
       <p className="whitespace-pre-wrap text-sm text-stamp-ink">{post.content}</p>
 
       <footer className="flex items-center gap-2 text-sm">
+        <Link className="rounded border border-stamp-muted px-3 py-1 hover:bg-stamp-muted" href={`/post/${post.id}`}>
+          Comments
+        </Link>
         <button
           className="rounded border border-stamp-muted px-3 py-1 hover:bg-stamp-muted"
           onClick={() => {

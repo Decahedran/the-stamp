@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/layout/auth-provider";
+import { CommentThread } from "@/components/posts/comment-thread";
 import { PostCard } from "@/components/posts/post-card";
 import { hasUserLikedPost, subscribeToPostById, toggleLike } from "@/lib/services/post-service";
 import { getUserProfile } from "@/lib/services/profile-service";
@@ -77,39 +78,42 @@ export function PostDetailView({ postId }: PostDetailViewProps) {
       ) : null}
 
       {post ? (
-        <PostCard
-          displayName={displayName}
-          likedByMe={likedByMe}
-          onToggleLike={async (targetPost) => {
-            const wasLiked = likedByMe;
+        <>
+          <PostCard
+            displayName={displayName}
+            likedByMe={likedByMe}
+            onToggleLike={async (targetPost) => {
+              const wasLiked = likedByMe;
 
-            setLikedByMe(!wasLiked);
-            setPost((previous) =>
-              previous
-                ? {
-                    ...previous,
-                    likeCount: Math.max(0, previous.likeCount + (wasLiked ? -1 : 1))
-                  }
-                : previous
-            );
-
-            try {
-              await toggleLike(targetPost.id, user.uid);
-            } catch (caught) {
-              setLikedByMe(wasLiked);
+              setLikedByMe(!wasLiked);
               setPost((previous) =>
                 previous
                   ? {
                       ...previous,
-                      likeCount: Math.max(0, previous.likeCount + (wasLiked ? 1 : -1))
+                      likeCount: Math.max(0, previous.likeCount + (wasLiked ? -1 : 1))
                     }
                   : previous
               );
-              setError(caught instanceof Error ? caught.message : "Could not update like.");
-            }
-          }}
-          post={post}
-        />
+
+              try {
+                await toggleLike(targetPost.id, user.uid);
+              } catch (caught) {
+                setLikedByMe(wasLiked);
+                setPost((previous) =>
+                  previous
+                    ? {
+                        ...previous,
+                        likeCount: Math.max(0, previous.likeCount + (wasLiked ? 1 : -1))
+                      }
+                    : previous
+                );
+                setError(caught instanceof Error ? caught.message : "Could not update like.");
+              }
+            }}
+            post={post}
+          />
+          <CommentThread post={post} />
+        </>
       ) : null}
 
       <div className="flex gap-3 text-sm">

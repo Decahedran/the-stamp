@@ -52,17 +52,39 @@ export interface PostLike {
   createdAt: Timestamp;
 }
 
-export type NotificationType = "post_liked" | "friend_request_received" | "friend_request_accepted";
+export type NotificationType =
+  | "post_liked"
+  | "friend_request_received"
+  | "friend_request_accepted"
+  | "post_commented"
+  | "comment_replied";
 
 export interface NotificationItem {
   recipientUid: string;
   actorUid: string;
   type: NotificationType;
   postId: string;
+  commentId: string;
   read: boolean;
   createdAt: Timestamp;
+}
+
+export interface PostComment {
+  postId: string;
+  authorUid: string;
+  authorAddress: string;
+  content: string;
+  parentCommentId: string;
+  rootCommentId: string;
+  replyCount: number;
+  hiddenByPostOwner: boolean;
+  deletedByAuthor: boolean;
+  deletedByPostOwner: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export type WithId<T> = T & { id: string };
 export type FriendRequestRecord = WithId<FriendRequest>;
 export type PostCardRecord = WithId<PostCard>;
+export type PostCommentRecord = WithId<PostComment>;

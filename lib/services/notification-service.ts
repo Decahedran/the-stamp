@@ -19,6 +19,7 @@ async function createNotification(params: {
   actorUid: string;
   type: NotificationItem["type"];
   postId?: string;
+  commentId?: string;
 }) {
   if (params.recipientUid === params.actorUid) {
     return;
@@ -28,6 +29,7 @@ async function createNotification(params: {
     recipientUid: params.recipientUid,
     actorUid: params.actorUid,
     postId: params.postId ?? "",
+    commentId: params.commentId ?? "",
     type: params.type,
     read: false,
     createdAt: serverTimestamp()
@@ -43,7 +45,38 @@ export async function createPostLikedNotification(params: {
     recipientUid: params.recipientUid,
     actorUid: params.actorUid,
     type: "post_liked",
-    postId: params.postId
+    postId: params.postId,
+    commentId: ""
+  });
+}
+
+export async function createPostCommentedNotification(params: {
+  recipientUid: string;
+  actorUid: string;
+  postId: string;
+  commentId: string;
+}) {
+  await createNotification({
+    recipientUid: params.recipientUid,
+    actorUid: params.actorUid,
+    type: "post_commented",
+    postId: params.postId,
+    commentId: params.commentId
+  });
+}
+
+export async function createCommentRepliedNotification(params: {
+  recipientUid: string;
+  actorUid: string;
+  postId: string;
+  commentId: string;
+}) {
+  await createNotification({
+    recipientUid: params.recipientUid,
+    actorUid: params.actorUid,
+    type: "comment_replied",
+    postId: params.postId,
+    commentId: params.commentId
   });
 }
 
@@ -54,7 +87,8 @@ export async function createFriendRequestReceivedNotification(params: {
   await createNotification({
     recipientUid: params.recipientUid,
     actorUid: params.actorUid,
-    type: "friend_request_received"
+    type: "friend_request_received",
+    commentId: ""
   });
 }
 
@@ -65,7 +99,8 @@ export async function createFriendRequestAcceptedNotification(params: {
   await createNotification({
     recipientUid: params.recipientUid,
     actorUid: params.actorUid,
-    type: "friend_request_accepted"
+    type: "friend_request_accepted",
+    commentId: ""
   });
 }
 
