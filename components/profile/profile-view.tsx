@@ -8,6 +8,7 @@ import { PostCard } from "@/components/posts/post-card";
 import { areFriends, removeFriend } from "@/lib/services/friendship-service";
 import {
   deleteOwnPost,
+  getActivePostCountByUid,
   getProfilePostsPageByUid,
   hasUserLikedPost,
   toggleLike
@@ -56,9 +57,10 @@ export function ProfileView({ address }: ProfileViewProps) {
         return;
       }
 
-      const [targetProfile, firstPage] = await Promise.all([
+      const [targetProfile, firstPage, activePostCount] = await Promise.all([
         getUserProfile(uid),
-        getProfilePostsPageByUid(uid, { pageSize: PROFILE_POSTS_PAGE_SIZE })
+        getProfilePostsPageByUid(uid, { pageSize: PROFILE_POSTS_PAGE_SIZE }),
+        getActivePostCountByUid(uid)
       ]);
 
       if (!targetProfile) {
@@ -74,7 +76,10 @@ export function ProfileView({ address }: ProfileViewProps) {
 
       const friendship = targetProfile.uid === user.uid ? false : await areFriends(user.uid, targetProfile.uid);
 
-      setProfile(targetProfile);
+      setProfile({
+        ...targetProfile,
+        postCount: activePostCount
+      });
       setPosts(firstPage.posts);
       setLikedByMe(Object.fromEntries(likePairs.map((item) => [item.postId, item.liked])));
       setNextCursor(firstPage.nextCursor);

@@ -40,7 +40,12 @@ export function CommentThread({ post }: CommentThreadProps) {
     });
   }, [post.id]);
 
-  const totalComments = post.commentCount;
+  const totalComments = useMemo(
+    () =>
+      thread.roots.length +
+      Object.values(thread.repliesByParentId).reduce((count, replies) => count + replies.length, 0),
+    [thread]
+  );
 
   if (!user) {
     return null;

@@ -2,6 +2,7 @@ import {
   Timestamp,
   collection,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   increment,
@@ -247,6 +248,14 @@ export async function getProfilePostsPageByUid(
     posts,
     nextCursor: snapshots.docs.length < pageSize ? null : snapshots.docs[snapshots.docs.length - 1]
   };
+}
+
+export async function getActivePostCountByUid(uid: string): Promise<number> {
+  const countSnapshot = await getCountFromServer(
+    query(collection(db, "posts"), where("authorUid", "==", uid), where("deleted", "==", false))
+  );
+
+  return countSnapshot.data().count;
 }
 
 export async function getProfilePostsByUid(uid: string): Promise<PostCardRecord[]> {

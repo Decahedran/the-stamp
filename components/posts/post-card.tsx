@@ -9,6 +9,7 @@ type PostCardProps = {
   displayName?: string;
   profileHref?: string;
   showDelete?: boolean;
+  showCommentCount?: boolean;
   likedByMe?: boolean;
   deleteDisabled?: boolean;
   onToggleLike: (post: PostCardRecord) => Promise<void>;
@@ -20,6 +21,7 @@ export function PostCard({
   displayName,
   profileHref,
   showDelete = false,
+  showCommentCount = true,
   likedByMe = false,
   deleteDisabled = false,
   onToggleLike,
@@ -45,7 +47,7 @@ export function PostCard({
 
       <footer className="flex items-center gap-2 text-sm">
         <Link className="rounded border border-stamp-muted px-3 py-1 hover:bg-stamp-muted" href={`/post/${post.id}`}>
-          Comments ({post.commentCount})
+          {showCommentCount ? `Comments (${post.commentCount})` : "Comments"}
         </Link>
         <button
           className="rounded border border-stamp-muted px-3 py-1 hover:bg-stamp-muted"
