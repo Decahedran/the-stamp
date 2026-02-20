@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useAuth } from "@/components/layout/auth-provider";
 import { db } from "@/lib/firebase/client";
-import { DEFAULT_THEME, parseCustomThemeColor, resolveTheme } from "@/lib/utils/theme";
+import { DEFAULT_THEME, getDarkerHexColor, getThemeBackgroundColor, resolveTheme } from "@/lib/utils/theme";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -14,8 +14,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     if (!user) {
       body.dataset.theme = DEFAULT_THEME;
-      body.style.removeProperty("--custom-theme-bg");
-      body.style.removeProperty("--custom-theme-fg");
+      const defaultBackground = getThemeBackgroundColor(DEFAULT_THEME);
+      body.style.setProperty("--theme-bg", defaultBackground);
+      body.style.setProperty("--theme-fg", getDarkerHexColor(defaultBackground, 0.55));
       return;
     }
 
@@ -24,19 +25,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const resolvedTheme = resolveTheme(rawTheme);
       body.dataset.theme = resolvedTheme;
 
-      const customColor = parseCustomThemeColor(resolvedTheme);
-      if (customColor) {
-        body.style.setProperty("--custom-theme-bg", customColor);
-
-        const red = Number.parseInt(customColor.slice(1, 3), 16);
-        const green = Number.parseInt(customColor.slice(3, 5), 16);
-        const blue = Number.parseInt(customColor.slice(5, 7), 16);
-        const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
-        body.style.setProperty("--custom-theme-fg", luminance > 0.6 ? "#0f172a" : "#f8fafc");
-      } else {
-        body.style.removeProperty("--custom-theme-bg");
-        body.style.removeProperty("--custom-theme-fg");
-      }
+      const backgroundColor = getThemeBackgroundColor(resolvedTheme);
+      body.style.setProperty("--theme-bg", backgroundColor);
+      body.style.setProperty("--theme-fg", getDarkerHexColor(backgroundColor, 0.55));
     });
 
     return () => unsubscribe();
