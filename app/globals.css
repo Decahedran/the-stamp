@@ -28,6 +28,51 @@ body[data-theme="theme:forest"] {
   background-color: #ecfdf5;
 }
 
+body[data-theme="theme:midnight"] {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+body[data-theme="theme:neon-dusk"] {
+  background-color: #2e1065;
+  color: #f5d0fe;
+}
+
+body[data-theme="theme:plum-noir"] {
+  background-color: #3b0764;
+  color: #f3e8ff;
+}
+
+body[data-theme="theme:ember"] {
+  background-color: #7f1d1d;
+  color: #fee2e2;
+}
+
+body[data-theme="theme:velvet-ocean"] {
+  background-color: #164e63;
+  color: #cffafe;
+}
+
+body[data-theme="theme:obsidian-rose"] {
+  background-color: #4a044e;
+  color: #fae8ff;
+}
+
+body[data-theme="theme:storm"] {
+  background-color: #1f2937;
+  color: #e5e7eb;
+}
+
+body[data-theme="theme:toxic-lime"] {
+  background-color: #365314;
+  color: #ecfccb;
+}
+
+body[data-theme^="theme:custom-"] {
+  background-color: var(--custom-theme-bg, #334155);
+  color: var(--custom-theme-fg, #f8fafc);
+}
+
 a {
   @apply text-stamp-accent underline-offset-2 hover:underline;
 }

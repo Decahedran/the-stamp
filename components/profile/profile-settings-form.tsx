@@ -10,7 +10,14 @@ import {
   updateProfileFields
 } from "@/lib/services/profile-service";
 import type { UserProfile } from "@/lib/types/db";
-import { DEFAULT_THEME, THEMES, resolveTheme } from "@/lib/utils/theme";
+import {
+  CUSTOM_THEME_KEY,
+  DEFAULT_THEME,
+  THEMES,
+  createCustomThemeKey,
+  parseCustomThemeColor,
+  resolveTheme
+} from "@/lib/utils/theme";
 import { addressSchema, bioSchema, displayNameSchema } from "@/lib/utils/validation";
 import { z } from "zod";
 
@@ -30,6 +37,7 @@ export function ProfileSettingsForm() {
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [theme, setTheme] = useState(DEFAULT_THEME);
+  const [customThemeColor, setCustomThemeColor] = useState("#334155");
   const [newAddress, setNewAddress] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -59,7 +67,11 @@ export function ProfileSettingsForm() {
       setProfile(data);
       setDisplayName(data.displayName);
       setBio(data.bio);
-      setTheme(resolveTheme(data.backgroundUrl));
+      const resolvedTheme = resolveTheme(data.backgroundUrl);
+      const savedCustomColor = parseCustomThemeColor(resolvedTheme);
+
+      setTheme(savedCustomColor ? CUSTOM_THEME_KEY : resolvedTheme);
+      setCustomThemeColor(savedCustomColor ?? "#334155");
       setNewAddress(data.address);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load profile settings.");
@@ -91,11 +103,14 @@ export function ProfileSettingsForm() {
 
     try {
       const parsed = profileSchema.parse({ displayName, bio });
+      const resolvedSelection =
+        theme === CUSTOM_THEME_KEY ? createCustomThemeKey(customThemeColor) : resolveTheme(theme);
+
       await updateProfileFields(currentUser.uid, {
         displayName: parsed.displayName,
         bio: parsed.bio,
-        photoUrl: resolveTheme(theme),
-        backgroundUrl: resolveTheme(theme)
+        photoUrl: resolvedSelection,
+        backgroundUrl: resolvedSelection
       });
 
       setNotice("Profile updated.");
@@ -192,8 +207,25 @@ export function ProfileSettingsForm() {
                 {item.label}
               </option>
             ))}
+            <option value={CUSTOM_THEME_KEY}>Custom</option>
           </select>
         </label>
+
+        {theme === CUSTOM_THEME_KEY ? (
+          <label className="block text-sm">
+            Custom color
+            <div className="mt-1 flex items-center gap-3">
+              <input
+                aria-label="Custom theme color"
+                className="h-10 w-14 cursor-pointer rounded border border-stamp-muted bg-transparent p-1"
+                onChange={(event) => setCustomThemeColor(event.target.value)}
+                type="color"
+                value={customThemeColor}
+              />
+              <code className="rounded bg-stamp-muted px-2 py-1 text-xs">{customThemeColor.toUpperCase()}</code>
+            </div>
+          </label>
+        ) : null}
 
         <button
           className="rounded border border-stamp-muted px-3 py-2 text-sm hover:bg-stamp-muted disabled:opacity-60"
