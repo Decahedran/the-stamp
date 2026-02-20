@@ -121,7 +121,7 @@ service cloud.firestore {
         && request.resource.data.emailVerified == false;
     }
 
-    function validPostCreate(postId) {
+    function validPostCreate() {
       return hasOnlyKeys(request.resource.data, [
           'authorUid',
           'authorAddress',
@@ -251,7 +251,7 @@ service cloud.firestore {
         ])
         && request.resource.data.postId is string
         && request.resource.data.postId.size() > 0
-        && postDoc.exists()
+        && postDoc.data != null
         && postDoc.data.deleted == false
         && request.resource.data.authorUid == request.auth.uid
         && isAddress(request.resource.data.authorAddress)
@@ -287,7 +287,7 @@ service cloud.firestore {
     function isCommentModerationByPostOwner() {
       let postDoc = get(/databases/$(database)/documents/posts/$(resource.data.postId));
 
-      return postDoc.exists()
+      return postDoc.data != null
         && postDoc.data.authorUid == request.auth.uid
         && request.resource.data.postId == resource.data.postId
         && request.resource.data.authorUid == resource.data.authorUid
@@ -337,7 +337,7 @@ service cloud.firestore {
 
     match /posts/{postId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && validPostCreate(postId);
+      allow create: if isSignedIn() && validPostCreate();
       allow update: if isSignedIn() && (isPostSoftDeleteByAuthor() || isPostLikeCountDelta());
       allow delete: if false;
     }
