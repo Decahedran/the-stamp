@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDoc,
+  increment,
   onSnapshot,
   orderBy,
   query,
@@ -150,6 +151,10 @@ export async function createComment(params: {
       updatedAt: serverTimestamp()
     });
 
+    tx.update(doc(db, "posts", params.postId), {
+      commentCount: increment(1),
+      updatedAt: serverTimestamp()
+    });
   });
 
   if (parentComment) {
@@ -194,12 +199,17 @@ export async function deleteOwnComment(commentId: string, actorUid: string) {
       throw new Error("You can only delete your own comments");
     }
 
-    if (comment.deletedByAuthor === true) {
+    if (comment.deletedByAuthor === true || comment.deletedByPostOwner === true || comment.hiddenByPostOwner === true) {
       return;
     }
 
     tx.update(commentRef, {
       deletedByAuthor: true,
+      updatedAt: serverTimestamp()
+    });
+
+    tx.update(doc(db, "posts", comment.postId), {
+      commentCount: increment(-1),
       updatedAt: serverTimestamp()
     });
   });
@@ -236,12 +246,17 @@ export async function hideCommentForPostOwner(params: {
   await runTransaction(db, async (tx) => {
     const { commentRef, comment } = await assertActorOwnsCommentPost(tx, params);
 
-    if (comment.hiddenByPostOwner === true) {
+    if (comment.hiddenByPostOwner === true || comment.deletedByAuthor === true || comment.deletedByPostOwner === true) {
       return;
     }
 
     tx.update(commentRef, {
       hiddenByPostOwner: true,
+      updatedAt: serverTimestamp()
+    });
+
+    tx.update(doc(db, "posts", comment.postId), {
+      commentCount: increment(-1),
       updatedAt: serverTimestamp()
     });
   });
@@ -254,12 +269,17 @@ export async function deleteCommentForPostOwner(params: {
   await runTransaction(db, async (tx) => {
     const { commentRef, comment } = await assertActorOwnsCommentPost(tx, params);
 
-    if (comment.deletedByPostOwner === true) {
+    if (comment.deletedByPostOwner === true || comment.deletedByAuthor === true || comment.hiddenByPostOwner === true) {
       return;
     }
 
     tx.update(commentRef, {
       deletedByPostOwner: true,
+      updatedAt: serverTimestamp()
+    });
+
+    tx.update(doc(db, "posts", comment.postId), {
+      commentCount: increment(-1),
       updatedAt: serverTimestamp()
     });
   });

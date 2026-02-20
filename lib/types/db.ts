@@ -41,6 +41,7 @@ export interface PostCard {
   authorAddress: string;
   content: string;
   likeCount: number;
+  commentCount: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   deleted: boolean;

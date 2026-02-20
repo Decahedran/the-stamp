@@ -245,10 +245,19 @@ export function ProfileView({ address }: ProfileViewProps) {
 
                       const previousPosts = posts;
                       const previousLikedByMe = likedByMe;
+                      const previousProfile = profile;
 
                       setDeletingPostId(targetPost.id);
                       setError("");
                       setPosts((previous) => previous.filter((item) => item.id !== targetPost.id));
+                      setProfile((previous) =>
+                        previous
+                          ? {
+                              ...previous,
+                              postCount: Math.max(0, previous.postCount - 1)
+                            }
+                          : previous
+                      );
                       setLikedByMe((previous) => {
                         const next = { ...previous };
                         delete next[targetPost.id];
@@ -260,6 +269,7 @@ export function ProfileView({ address }: ProfileViewProps) {
                       } catch (caught) {
                         setPosts(previousPosts);
                         setLikedByMe(previousLikedByMe);
+                        setProfile(previousProfile);
                         setError(caught instanceof Error ? caught.message : "Could not delete postcard.");
                       } finally {
                         setDeletingPostId((previous) => (previous === targetPost.id ? null : previous));

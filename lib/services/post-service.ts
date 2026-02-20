@@ -36,6 +36,7 @@ export async function createPost(authorUid: string, authorAddress: string, conte
       authorAddress,
       content,
       likeCount: 0,
+      commentCount: 0,
       deleted: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -68,6 +69,11 @@ export async function deleteOwnPost(postId: string, actorUid: string) {
 
     tx.update(postRef, {
       deleted: true,
+      updatedAt: serverTimestamp()
+    });
+
+    tx.update(doc(db, "users", actorUid), {
+      postCount: increment(-1),
       updatedAt: serverTimestamp()
     });
   });

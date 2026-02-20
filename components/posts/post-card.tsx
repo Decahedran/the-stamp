@@ -45,7 +45,7 @@ export function PostCard({
 
       <footer className="flex items-center gap-2 text-sm">
         <Link className="rounded border border-stamp-muted px-3 py-1 hover:bg-stamp-muted" href={`/post/${post.id}`}>
-          Comments
+          Comments ({post.commentCount})
         </Link>
         <button
           className="rounded border border-stamp-muted px-3 py-1 hover:bg-stamp-muted"
