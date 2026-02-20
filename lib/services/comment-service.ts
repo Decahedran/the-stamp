@@ -36,6 +36,14 @@ function sortByCreatedAscending<T extends { createdAt: { toMillis: () => number 
   return [...items].sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
 }
 
+function getSafeCounter(value: unknown): number {
+  if (typeof value !== "number") {
+    return 0;
+  }
+
+  return Math.max(0, value);
+}
+
 export function subscribeToPostComments(
   postId: string,
   onChange: (thread: PostCommentThread) => void
@@ -208,10 +216,16 @@ export async function deleteOwnComment(commentId: string, actorUid: string) {
       updatedAt: serverTimestamp()
     });
 
-    tx.update(doc(db, "posts", comment.postId), {
-      commentCount: increment(-1),
-      updatedAt: serverTimestamp()
-    });
+    const postRef = doc(db, "posts", comment.postId);
+    const postSnap = await tx.get(postRef);
+
+    if (postSnap.exists()) {
+      const nextCommentCount = Math.max(0, getSafeCounter(postSnap.data().commentCount) - 1);
+      tx.update(postRef, {
+        commentCount: nextCommentCount,
+        updatedAt: serverTimestamp()
+      });
+    }
   });
 }
 
@@ -255,10 +269,16 @@ export async function hideCommentForPostOwner(params: {
       updatedAt: serverTimestamp()
     });
 
-    tx.update(doc(db, "posts", comment.postId), {
-      commentCount: increment(-1),
-      updatedAt: serverTimestamp()
-    });
+    const postRef = doc(db, "posts", comment.postId);
+    const postSnap = await tx.get(postRef);
+
+    if (postSnap.exists()) {
+      const nextCommentCount = Math.max(0, getSafeCounter(postSnap.data().commentCount) - 1);
+      tx.update(postRef, {
+        commentCount: nextCommentCount,
+        updatedAt: serverTimestamp()
+      });
+    }
   });
 }
 
@@ -278,9 +298,15 @@ export async function deleteCommentForPostOwner(params: {
       updatedAt: serverTimestamp()
     });
 
-    tx.update(doc(db, "posts", comment.postId), {
-      commentCount: increment(-1),
-      updatedAt: serverTimestamp()
-    });
+    const postRef = doc(db, "posts", comment.postId);
+    const postSnap = await tx.get(postRef);
+
+    if (postSnap.exists()) {
+      const nextCommentCount = Math.max(0, getSafeCounter(postSnap.data().commentCount) - 1);
+      tx.update(postRef, {
+        commentCount: nextCommentCount,
+        updatedAt: serverTimestamp()
+      });
+    }
   });
 }

@@ -27,6 +27,14 @@ function createLikeId(postId: string, uid: string): string {
   return `${postId}_${uid}`;
 }
 
+function getSafeCounter(value: unknown): number {
+  if (typeof value !== "number") {
+    return 0;
+  }
+
+  return Math.max(0, value);
+}
+
 function normalizePostRecord(snapshot: { id: string; data: () => unknown }): PostCardRecord {
   const data = snapshot.data() as Record<string, unknown>;
 
@@ -35,8 +43,8 @@ function normalizePostRecord(snapshot: { id: string; data: () => unknown }): Pos
     authorUid: data.authorUid as string,
     authorAddress: data.authorAddress as string,
     content: data.content as string,
-    likeCount: typeof data.likeCount === "number" ? data.likeCount : 0,
-    commentCount: typeof data.commentCount === "number" ? data.commentCount : 0,
+    likeCount: getSafeCounter(data.likeCount),
+    commentCount: getSafeCounter(data.commentCount),
     createdAt: data.createdAt as PostCardRecord["createdAt"],
     updatedAt: data.updatedAt as PostCardRecord["updatedAt"],
     deleted: data.deleted === true
@@ -110,17 +118,23 @@ export async function toggleLike(postId: string, actorUid: string) {
       throw new Error("Post not found");
     }
 
-    postAuthorUid = postSnap.data().authorUid as string;
+    const postData = postSnap.data();
+    postAuthorUid = postData.authorUid as string;
+
+    const userRef = doc(db, "users", postAuthorUid);
+    const userSnap = await tx.get(userRef);
+    const currentLikeCount = getSafeCounter(postData.likeCount);
+    const currentTotalLikesReceived = getSafeCounter(userSnap.data()?.totalLikesReceived);
 
     if (likeSnap.exists()) {
       liked = false;
       tx.delete(likeRef);
       tx.update(postRef, {
-        likeCount: increment(-1),
+        likeCount: Math.max(0, currentLikeCount - 1),
         updatedAt: serverTimestamp()
       });
-      tx.update(doc(db, "users", postAuthorUid), {
-        totalLikesReceived: increment(-1),
+      tx.update(userRef, {
+        totalLikesReceived: Math.max(0, currentTotalLikesReceived - 1),
         updatedAt: serverTimestamp()
       });
       return;
@@ -133,11 +147,11 @@ export async function toggleLike(postId: string, actorUid: string) {
       createdAt: serverTimestamp()
     });
     tx.update(postRef, {
-      likeCount: increment(1),
+      likeCount: currentLikeCount + 1,
       updatedAt: serverTimestamp()
     });
-    tx.update(doc(db, "users", postAuthorUid), {
-      totalLikesReceived: increment(1),
+    tx.update(userRef, {
+      totalLikesReceived: currentTotalLikesReceived + 1,
       updatedAt: serverTimestamp()
     });
   });

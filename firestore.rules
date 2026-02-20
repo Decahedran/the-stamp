@@ -146,6 +146,10 @@ service cloud.firestore {
       return 'deleted' in data && data.deleted == true;
     }
 
+    function postLikeCountValue(data) {
+      return ('likeCount' in data && data.likeCount is int) ? data.likeCount : 0;
+    }
+
     function postCommentCountValue(data) {
       return ('commentCount' in data && data.commentCount is int) ? data.commentCount : 0;
     }
@@ -171,9 +175,9 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && postCommentCountValue(request.resource.data) == postCommentCountValue(resource.data)
         && !postDeletedValue(request.resource.data)
-        && request.resource.data.likeCount is int
-        && request.resource.data.likeCount >= resource.data.likeCount - 1
-        && request.resource.data.likeCount <= resource.data.likeCount + 1
+        && postLikeCountValue(request.resource.data) >= 0
+        && postLikeCountValue(request.resource.data) >= postLikeCountValue(resource.data) - 1
+        && postLikeCountValue(request.resource.data) <= postLikeCountValue(resource.data) + 1
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['likeCount', 'updatedAt']);
     }
 
@@ -186,6 +190,7 @@ service cloud.firestore {
         && request.resource.data.likeCount == resource.data.likeCount
         && request.resource.data.createdAt == resource.data.createdAt
         && !postDeletedValue(request.resource.data)
+        && postCommentCountValue(request.resource.data) >= 0
         && postCommentCountValue(request.resource.data) >= postCommentCountValue(resource.data) - 1
         && postCommentCountValue(request.resource.data) <= postCommentCountValue(resource.data) + 1
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['commentCount', 'updatedAt']);
