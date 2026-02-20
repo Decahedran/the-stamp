@@ -237,13 +237,13 @@ export function ProfileSettingsForm() {
       </form>
 
       <form className="space-y-3 rounded-postcard border border-stamp-muted bg-white p-4 shadow-postcard" onSubmit={handleAddressSave}>
-        <h2 className="text-lg font-semibold">@ddress</h2>
+        <h2 className="text-lg font-semibold">Username</h2>
 
         <label className="block text-sm">
-          New @ddress
           <input
             className="mt-1 w-full rounded border border-stamp-muted px-3 py-2"
             onChange={(event) => setNewAddress(event.target.value)}
+            placeholder="@ddress"
             value={newAddress}
           />
         </label>
