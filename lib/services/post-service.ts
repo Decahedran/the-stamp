@@ -27,6 +27,22 @@ function createLikeId(postId: string, uid: string): string {
   return `${postId}_${uid}`;
 }
 
+function normalizePostRecord(snapshot: { id: string; data: () => unknown }): PostCardRecord {
+  const data = snapshot.data() as Record<string, unknown>;
+
+  return {
+    id: snapshot.id,
+    authorUid: data.authorUid as string,
+    authorAddress: data.authorAddress as string,
+    content: data.content as string,
+    likeCount: typeof data.likeCount === "number" ? data.likeCount : 0,
+    commentCount: typeof data.commentCount === "number" ? data.commentCount : 0,
+    createdAt: data.createdAt as PostCardRecord["createdAt"],
+    updatedAt: data.updatedAt as PostCardRecord["updatedAt"],
+    deleted: data.deleted === true
+  };
+}
+
 export async function createPost(authorUid: string, authorAddress: string, content: string) {
   const postsRef = collection(db, "posts");
   const userRef = doc(db, "users", authorUid);
@@ -154,12 +170,7 @@ export function subscribeToRecentPosts(onChange: (posts: PostCardRecord[]) => vo
       orderBy("createdAt", "desc")
     ),
     (snapshots) => {
-      onChange(
-        snapshots.docs.map((snapshot) => ({
-          id: snapshot.id,
-          ...(snapshot.data() as Omit<PostCardRecord, "id">)
-        }))
-      );
+      onChange(snapshots.docs.map((snapshot) => normalizePostRecord(snapshot)));
     }
   );
 }
@@ -174,10 +185,7 @@ export function subscribeToPostById(
       return;
     }
 
-    const post = {
-      id: snapshot.id,
-      ...(snapshot.data() as Omit<PostCardRecord, "id">)
-    };
+    const post = normalizePostRecord(snapshot);
 
     if (post.deleted) {
       onChange(null);
@@ -206,10 +214,7 @@ export async function getFeedPosts(visibleAuthorUids: string[]): Promise<PostCar
   const snapshots = await getDocs(feedQuery);
 
   return snapshots.docs
-    .map((snapshot) => ({
-      id: snapshot.id,
-      ...(snapshot.data() as Omit<PostCardRecord, "id">)
-    }))
+    .map((snapshot) => normalizePostRecord(snapshot))
     .filter((post) => visibleAuthorUids.includes(post.authorUid));
 }
 
@@ -239,10 +244,7 @@ export async function getProfilePostsPageByUid(
     : query(baseQuery, limit(pageSize));
 
   const snapshots = await getDocs(pageQuery);
-  const posts = snapshots.docs.map((snapshot) => ({
-    id: snapshot.id,
-    ...(snapshot.data() as Omit<PostCardRecord, "id">)
-  }));
+  const posts = snapshots.docs.map((snapshot) => normalizePostRecord(snapshot));
 
   return {
     posts,
@@ -267,10 +269,7 @@ export async function getProfilePostsByUid(uid: string): Promise<PostCardRecord[
   );
 
   const snapshots = await getDocs(profileQuery);
-  return snapshots.docs.map((snapshot) => ({
-    id: snapshot.id,
-    ...(snapshot.data() as Omit<PostCardRecord, "id">)
-  }));
+  return snapshots.docs.map((snapshot) => normalizePostRecord(snapshot));
 }
 
 export async function getPostById(postId: string): Promise<PostCardRecord | null> {
@@ -279,8 +278,5 @@ export async function getPostById(postId: string): Promise<PostCardRecord | null
     return null;
   }
 
-  return {
-    id: snap.id,
-    ...(snap.data() as Omit<PostCardRecord, "id">)
-  };
+  return normalizePostRecord(snap);
 }

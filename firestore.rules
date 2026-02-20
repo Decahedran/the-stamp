@@ -142,6 +142,14 @@ service cloud.firestore {
         && request.resource.data.deleted == false;
     }
 
+    function postDeletedValue(data) {
+      return 'deleted' in data && data.deleted == true;
+    }
+
+    function postCommentCountValue(data) {
+      return ('commentCount' in data && data.commentCount is int) ? data.commentCount : 0;
+    }
+
     function isPostSoftDeleteByAuthor() {
       return request.auth.uid == resource.data.authorUid
         && request.resource.data.authorUid == resource.data.authorUid
@@ -150,19 +158,19 @@ service cloud.firestore {
         && request.resource.data.likeCount == resource.data.likeCount
         && request.resource.data.commentCount == resource.data.commentCount
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.deleted == true
+        && postDeletedValue(request.resource.data)
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['deleted', 'updatedAt']);
     }
 
     function isPostLikeCountDelta() {
       return isSignedIn()
-        && resource.data.deleted == false
+        && !postDeletedValue(resource.data)
         && request.resource.data.authorUid == resource.data.authorUid
         && request.resource.data.authorAddress == resource.data.authorAddress
         && request.resource.data.content == resource.data.content
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.commentCount == resource.data.commentCount
-        && request.resource.data.deleted == false
+        && postCommentCountValue(request.resource.data) == postCommentCountValue(resource.data)
+        && !postDeletedValue(request.resource.data)
         && request.resource.data.likeCount is int
         && request.resource.data.likeCount >= resource.data.likeCount - 1
         && request.resource.data.likeCount <= resource.data.likeCount + 1
@@ -171,16 +179,15 @@ service cloud.firestore {
 
     function isPostCommentCountDelta() {
       return isSignedIn()
-        && resource.data.deleted == false
+        && !postDeletedValue(resource.data)
         && request.resource.data.authorUid == resource.data.authorUid
         && request.resource.data.authorAddress == resource.data.authorAddress
         && request.resource.data.content == resource.data.content
         && request.resource.data.likeCount == resource.data.likeCount
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.deleted == false
-        && request.resource.data.commentCount is int
-        && request.resource.data.commentCount >= resource.data.commentCount - 1
-        && request.resource.data.commentCount <= resource.data.commentCount + 1
+        && !postDeletedValue(request.resource.data)
+        && postCommentCountValue(request.resource.data) >= postCommentCountValue(resource.data) - 1
+        && postCommentCountValue(request.resource.data) <= postCommentCountValue(resource.data) + 1
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['commentCount', 'updatedAt']);
     }
 
@@ -271,7 +278,7 @@ service cloud.firestore {
         && request.resource.data.postId is string
         && request.resource.data.postId.size() > 0
         && postDoc.data != null
-        && postDoc.data.deleted == false
+        && !postDeletedValue(postDoc.data)
         && request.resource.data.authorUid == request.auth.uid
         && isAddress(request.resource.data.authorAddress)
         && request.resource.data.content is string
