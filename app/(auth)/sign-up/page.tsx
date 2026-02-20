@@ -113,11 +113,11 @@ export default function SignUpPage() {
         </label>
 
         <label className="block text-sm">
-          @ddress
+          Username
           <input
             className="mt-1 w-full rounded border border-stamp-muted px-3 py-2"
             onChange={(event) => setAddress(event.target.value)}
-            placeholder="derek_ink"
+            placeholder="@ddress"
             required
             value={address}
           />
