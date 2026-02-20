@@ -211,13 +211,13 @@ export async function deleteOwnComment(commentId: string, actorUid: string) {
       return;
     }
 
+    const postRef = doc(db, "posts", comment.postId);
+    const postSnap = await tx.get(postRef);
+
     tx.update(commentRef, {
       deletedByAuthor: true,
       updatedAt: serverTimestamp()
     });
-
-    const postRef = doc(db, "posts", comment.postId);
-    const postSnap = await tx.get(postRef);
 
     if (postSnap.exists()) {
       const nextCommentCount = Math.max(0, getSafeCounter(postSnap.data().commentCount) - 1);
@@ -264,13 +264,13 @@ export async function hideCommentForPostOwner(params: {
       return;
     }
 
+    const postRef = doc(db, "posts", comment.postId);
+    const postSnap = await tx.get(postRef);
+
     tx.update(commentRef, {
       hiddenByPostOwner: true,
       updatedAt: serverTimestamp()
     });
-
-    const postRef = doc(db, "posts", comment.postId);
-    const postSnap = await tx.get(postRef);
 
     if (postSnap.exists()) {
       const nextCommentCount = Math.max(0, getSafeCounter(postSnap.data().commentCount) - 1);
@@ -293,13 +293,13 @@ export async function deleteCommentForPostOwner(params: {
       return;
     }
 
+    const postRef = doc(db, "posts", comment.postId);
+    const postSnap = await tx.get(postRef);
+
     tx.update(commentRef, {
       deletedByPostOwner: true,
       updatedAt: serverTimestamp()
     });
-
-    const postRef = doc(db, "posts", comment.postId);
-    const postSnap = await tx.get(postRef);
 
     if (postSnap.exists()) {
       const nextCommentCount = Math.max(0, getSafeCounter(postSnap.data().commentCount) - 1);
