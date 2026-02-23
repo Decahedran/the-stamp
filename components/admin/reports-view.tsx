@@ -14,6 +14,7 @@ export function ReportsView() {
   const [actorNames, setActorNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reviewNotesById, setReviewNotesById] = useState<Record<string, string>>({});
 
   const isAdmin = useMemo(() => Boolean(user && ADMIN_UIDS.includes(user.uid)), [user]);
 
@@ -87,53 +88,74 @@ export function ReportsView() {
               <p className="text-sm font-semibold">{report.targetType} · {report.reason}</p>
               <p className="text-xs text-stamp-ink/60">{formatTimestamp(report.createdAt)}</p>
             </div>
+
             <p className="mt-2 text-sm text-stamp-ink/80">
               Reporter: {actorNames[report.reporterUid] ?? report.reporterUid} · Target owner: {actorNames[report.targetOwnerUid] ?? report.targetOwnerUid}
             </p>
             <p className="mt-1 text-xs text-stamp-ink/70">Target ID: {report.targetId}</p>
             {report.details ? <p className="mt-2 text-sm">{report.details}</p> : null}
 
-            <div className="mt-3 flex gap-2">
-              <button
-                className="rounded border border-green-300 px-3 py-1 text-xs text-green-800 hover:bg-green-50"
-                onClick={() => {
-                  void (async () => {
-                    try {
-                      await updateReportStatus({
-                        reportId: report.id,
-                        reviewerUid: user.uid,
-                        status: "resolved",
-                        reviewNotes: "Resolved by moderator"
-                      });
-                    } catch (caught) {
-                      setError(caught instanceof Error ? caught.message : "Could not resolve report.");
-                    }
-                  })();
+            <div className="mt-3 space-y-2">
+              <label className="block text-xs font-medium text-stamp-ink/80" htmlFor={`notes-${report.id}`}>
+                Moderator notes
+              </label>
+              <textarea
+                className="h-20 w-full resize-none rounded border border-stamp-muted px-2 py-1 text-sm"
+                id={`notes-${report.id}`}
+                maxLength={500}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setReviewNotesById((previous) => ({
+                    ...previous,
+                    [report.id]: value
+                  }));
                 }}
-                type="button"
-              >
-                Resolve
-              </button>
-              <button
-                className="rounded border border-stamp-muted px-3 py-1 text-xs hover:bg-stamp-muted"
-                onClick={() => {
-                  void (async () => {
-                    try {
-                      await updateReportStatus({
-                        reportId: report.id,
-                        reviewerUid: user.uid,
-                        status: "dismissed",
-                        reviewNotes: "Dismissed by moderator"
-                      });
-                    } catch (caught) {
-                      setError(caught instanceof Error ? caught.message : "Could not dismiss report.");
-                    }
-                  })();
-                }}
-                type="button"
-              >
-                Dismiss
-              </button>
+                placeholder="Optional notes for audit trail"
+                value={reviewNotesById[report.id] ?? ""}
+              />
+
+              <div className="flex gap-2">
+                <button
+                  className="rounded border border-green-300 px-3 py-1 text-xs text-green-800 hover:bg-green-50"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await updateReportStatus({
+                          reportId: report.id,
+                          reviewerUid: user.uid,
+                          status: "resolved",
+                          reviewNotes: reviewNotesById[report.id] ?? "Resolved by moderator"
+                        });
+                      } catch (caught) {
+                        setError(caught instanceof Error ? caught.message : "Could not resolve report.");
+                      }
+                    })();
+                  }}
+                  type="button"
+                >
+                  Resolve
+                </button>
+                <button
+                  className="rounded border border-stamp-muted px-3 py-1 text-xs hover:bg-stamp-muted"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await updateReportStatus({
+                          reportId: report.id,
+                          reviewerUid: user.uid,
+                          status: "dismissed",
+                          reviewNotes: reviewNotesById[report.id] ?? "Dismissed by moderator"
+                        });
+                      } catch (caught) {
+                        setError(caught instanceof Error ? caught.message : "Could not dismiss report.");
+                      }
+                    })();
+                  }}
+                  type="button"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           </article>
         ))}

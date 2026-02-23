@@ -12,10 +12,21 @@ import {
   setDoc,
   updateDoc,
   where,
+  type Timestamp,
   type Unsubscribe
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import type { ReportReason, ReportStatus, ReportTargetType, SafetyReport, SafetyReportRecord } from "@/lib/types/db";
+
+const REPORT_RATE_LIMIT_SECONDS = 30;
+
+function isRecentTimestamp(timestamp: Timestamp | null | undefined, windowSeconds: number): boolean {
+  if (!timestamp) {
+    return false;
+  }
+
+  return Date.now() - timestamp.toDate().getTime() < windowSeconds * 1000;
+}
 
 export async function reportContent(params: {
   reporterUid: string;
@@ -25,6 +36,33 @@ export async function reportContent(params: {
   reason: ReportReason;
   details?: string;
 }) {
+  const duplicateReportSnapshots = await getDocs(
+    query(
+      collection(db, "reports"),
+      where("reporterUid", "==", params.reporterUid),
+      where("targetType", "==", params.targetType),
+      where("targetId", "==", params.targetId),
+      where("status", "==", "open"),
+      limit(1)
+    )
+  );
+
+  if (!duplicateReportSnapshots.empty) {
+    throw new Error("You already have an open report for this content.");
+  }
+
+  const recentReportSnapshots = await getDocs(
+    query(collection(db, "reports"), where("reporterUid", "==", params.reporterUid), orderBy("createdAt", "desc"), limit(1))
+  );
+
+  const lastReportCreatedAt = recentReportSnapshots.empty
+    ? null
+    : (recentReportSnapshots.docs[0].data().createdAt as Timestamp | null | undefined);
+
+  if (isRecentTimestamp(lastReportCreatedAt, REPORT_RATE_LIMIT_SECONDS)) {
+    throw new Error("Please wait a few seconds before submitting another report.");
+  }
+
   await addDoc(collection(db, "reports"), {
     reporterUid: params.reporterUid,
     targetType: params.targetType,

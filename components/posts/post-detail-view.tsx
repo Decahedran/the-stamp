@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/layout/auth-provider";
 import { CommentThread } from "@/components/posts/comment-thread";
 import { PostCard } from "@/components/posts/post-card";
+import { ReportButton } from "@/components/safety/report-button";
 import { hasUserLikedPost, subscribeToPostById, toggleLike } from "@/lib/services/post-service";
-import { blockUser, isBlockedEitherDirection, reportContent } from "@/lib/services/safety-service";
+import { blockUser, isBlockedEitherDirection } from "@/lib/services/safety-service";
 import { getUserProfile } from "@/lib/services/profile-service";
 import type { PostCardRecord } from "@/lib/types/db";
 
@@ -93,29 +94,13 @@ export function PostDetailView({ postId }: PostDetailViewProps) {
             actionSlot={
               post.authorUid !== user.uid ? (
                 <>
-                  <button
-                    className="rounded border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-50"
-                    onClick={() => {
-                      void (async () => {
-                        try {
-                          await reportContent({
-                            reporterUid: user.uid,
-                            targetType: "post",
-                            targetId: post.id,
-                            targetOwnerUid: post.authorUid,
-                            reason: "other",
-                            details: "Reported from post detail"
-                          });
-                          setError("Thanks. We received your report.");
-                        } catch (caught) {
-                          setError(caught instanceof Error ? caught.message : "Could not submit report.");
-                        }
-                      })();
-                    }}
-                    type="button"
-                  >
-                    Report
-                  </button>
+                  <ReportButton
+                    onError={(message) => setError(message)}
+                    onReported={(message) => setError(message)}
+                    targetId={post.id}
+                    targetOwnerUid={post.authorUid}
+                    targetType="post"
+                  />
                   <button
                     className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
                     onClick={() => {

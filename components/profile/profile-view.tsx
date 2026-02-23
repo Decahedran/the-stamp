@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import { useAuth } from "@/components/layout/auth-provider";
 import { PostCard } from "@/components/posts/post-card";
+import { ReportButton } from "@/components/safety/report-button";
 import { areFriends, removeFriend } from "@/lib/services/friendship-service";
-import { blockUser, isBlockedEitherDirection, reportContent } from "@/lib/services/safety-service";
+import { blockUser, isBlockedEitherDirection } from "@/lib/services/safety-service";
 import {
   deleteOwnPost,
   getActivePostCountByUid,
@@ -241,29 +242,14 @@ export function ProfileView({ address }: ProfileViewProps) {
 
             {!isOwnProfile ? (
               <div className="flex flex-wrap gap-2 pt-1">
-                <button
+                <ReportButton
                   className="rounded border border-amber-300 px-3 py-1 text-xs text-amber-800 hover:bg-amber-50"
-                  onClick={() => {
-                    void (async () => {
-                      try {
-                        await reportContent({
-                          reporterUid: user.uid,
-                          targetType: "profile",
-                          targetId: profile.uid,
-                          targetOwnerUid: profile.uid,
-                          reason: "other",
-                          details: "Reported from profile view"
-                        });
-                        setError("Thanks. We received your report.");
-                      } catch (caught) {
-                        setError(caught instanceof Error ? caught.message : "Could not submit report.");
-                      }
-                    })();
-                  }}
-                  type="button"
-                >
-                  Report profile
-                </button>
+                  onError={(message) => setError(message)}
+                  onReported={(message) => setError(message)}
+                  targetId={profile.uid}
+                  targetOwnerUid={profile.uid}
+                  targetType="profile"
+                />
                 <button
                   className="rounded border border-red-300 px-3 py-1 text-xs text-red-700 hover:bg-red-50"
                   onClick={() => {

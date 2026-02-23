@@ -11,7 +11,8 @@ import {
   subscribeToPostComments,
   type PostCommentThread
 } from "@/lib/services/comment-service";
-import { blockUser, reportContent, subscribeToBlockedUserIds } from "@/lib/services/safety-service";
+import { ReportButton } from "@/components/safety/report-button";
+import { blockUser, subscribeToBlockedUserIds } from "@/lib/services/safety-service";
 import type { PostCardRecord, PostCommentRecord } from "@/lib/types/db";
 import { COMMENT_MAX_LENGTH } from "@/lib/utils/constants";
 import { formatTimestamp } from "@/lib/utils/dates";
@@ -227,29 +228,14 @@ export function CommentThread({ post }: CommentThreadProps) {
             ) : null}
             {item.authorUid !== currentUser.uid ? (
               <>
-                <button
+                <ReportButton
                   className="rounded border border-amber-300 px-2 py-0.5 text-amber-800 hover:bg-amber-50"
-                  onClick={() => {
-                    void (async () => {
-                      try {
-                        await reportContent({
-                          reporterUid: currentUser.uid,
-                          targetType: "comment",
-                          targetId: item.id,
-                          targetOwnerUid: item.authorUid,
-                          reason: "other",
-                          details: "Reported from comment thread"
-                        });
-                        setError("Thanks. We received your report.");
-                      } catch (caught) {
-                        setError(caught instanceof Error ? caught.message : "Could not submit report.");
-                      }
-                    })();
-                  }}
-                  type="button"
-                >
-                  Report
-                </button>
+                  onError={(message) => setError(message)}
+                  onReported={(message) => setError(message)}
+                  targetId={item.id}
+                  targetOwnerUid={item.authorUid}
+                  targetType="comment"
+                />
                 <button
                   className="rounded border border-red-300 px-2 py-0.5 text-red-700 hover:bg-red-50"
                   onClick={() => {
