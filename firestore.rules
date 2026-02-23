@@ -262,6 +262,92 @@ service cloud.firestore {
             && request.resource.data.commentId == ''));
     }
 
+    function validReportReason(value) {
+      return value in [
+        'bullying_harassment',
+        'sexual_content',
+        'violence_threats',
+        'self_harm',
+        'hate_abuse',
+        'spam',
+        'other'
+      ];
+    }
+
+    function validReportTargetType(value) {
+      return value in ['post', 'comment', 'profile'];
+    }
+
+    function validReportCreate() {
+      return hasOnlyKeys(request.resource.data, [
+          'reporterUid',
+          'targetType',
+          'targetId',
+          'targetOwnerUid',
+          'reason',
+          'details',
+          'status',
+          'reviewedByUid',
+          'reviewedAt',
+          'reviewNotes',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.reporterUid == request.auth.uid
+        && validReportTargetType(request.resource.data.targetType)
+        && request.resource.data.targetId is string
+        && request.resource.data.targetId.size() > 0
+        && request.resource.data.targetOwnerUid is string
+        && request.resource.data.targetOwnerUid.size() > 0
+        && validReportReason(request.resource.data.reason)
+        && request.resource.data.details is string
+        && request.resource.data.details.size() <= 500
+        && request.resource.data.status == 'open'
+        && request.resource.data.reviewedByUid == ''
+        && request.resource.data.reviewedAt == null
+        && request.resource.data.reviewNotes == '';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.uid in [
+        'Q55IUn8W53evG5f7El8mQwe74hQ2'
+      ];
+    }
+
+    function validReportModerationUpdate() {
+      return isAdmin()
+        && request.resource.data.reporterUid == resource.data.reporterUid
+        && request.resource.data.targetType == resource.data.targetType
+        && request.resource.data.targetId == resource.data.targetId
+        && request.resource.data.targetOwnerUid == resource.data.targetOwnerUid
+        && request.resource.data.reason == resource.data.reason
+        && request.resource.data.details == resource.data.details
+        && resource.data.status == 'open'
+        && request.resource.data.status in ['resolved', 'dismissed']
+        && request.resource.data.reviewedByUid == request.auth.uid
+        && request.resource.data.reviewNotes is string
+        && request.resource.data.reviewNotes.size() <= 500
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'status',
+          'reviewedByUid',
+          'reviewedAt',
+          'reviewNotes',
+          'updatedAt'
+        ]);
+    }
+
+    function validUserBlockCreate(blockId) {
+      return hasOnlyKeys(request.resource.data, ['blockerUid', 'blockedUid', 'createdAt'])
+        && request.resource.data.blockerUid == request.auth.uid
+        && request.resource.data.blockedUid is string
+        && request.resource.data.blockedUid != request.auth.uid
+        && blockId == request.resource.data.blockerUid + '_' + request.resource.data.blockedUid;
+    }
+
+    function validUserBlockDelete() {
+      return isSignedIn() && resource.data.blockerUid == request.auth.uid;
+    }
+
     function validCommentCreate(commentId) {
       let isReply = request.resource.data.parentCommentId != '';
       let postDoc = get(/databases/$(database)/documents/posts/$(request.resource.data.postId));
@@ -393,14 +479,24 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && resource.data.recipientUid == request.auth.uid
         && request.resource.data.recipientUid == resource.data.recipientUid
-        && request.resource.data.actorUid == resource.data.actorUid
-        && request.resource.data.postId == resource.data.postId
-        && request.resource.data.commentId == resource.data.commentId
-        && request.resource.data.type == resource.data.type
-        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.read is bool
         && request.resource.data.read == true
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['read']);
       allow delete: if false;
+    }
+
+    match /reports/{reportId} {
+      allow read: if isSignedIn() && (resource.data.reporterUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && validReportCreate();
+      allow update: if validReportModerationUpdate();
+      allow delete: if false;
+    }
+
+    match /userBlocks/{blockId} {
+      allow read: if isSignedIn() && (resource.data.blockerUid == request.auth.uid || resource.data.blockedUid == request.auth.uid);
+      allow create: if isSignedIn() && validUserBlockCreate(blockId);
+      allow update: if false;
+      allow delete: if validUserBlockDelete();
     }
   }
 }

@@ -7,6 +7,7 @@ import { PostComposer } from "@/components/posts/post-composer";
 import { PostCard } from "@/components/posts/post-card";
 import { subscribeToFriendIds } from "@/lib/services/friendship-service";
 import { hasUserLikedPost, subscribeToRecentPosts, toggleLike } from "@/lib/services/post-service";
+import { blockUser, reportContent, subscribeToBlockedUserIds } from "@/lib/services/safety-service";
 import { getUserProfile } from "@/lib/services/profile-service";
 import type { PostCardRecord, UserProfile } from "@/lib/types/db";
 import { FEED_WINDOW_HOURS } from "@/lib/utils/constants";
@@ -17,6 +18,7 @@ export function FeedView() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [friendIds, setFriendIds] = useState<string[]>([]);
   const [recentPosts, setRecentPosts] = useState<PostCardRecord[]>([]);
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
   const [likedByMe, setLikedByMe] = useState<Record<string, boolean>>({});
   const [authorDisplayNames, setAuthorDisplayNames] = useState<Record<string, string>>({});
   const [profileLoading, setProfileLoading] = useState(true);
@@ -41,10 +43,13 @@ export function FeedView() {
     const visibleUids = new Set([user.uid, ...friendIds]);
     const cutoff = Date.now() - FEED_WINDOW_HOURS * 60 * 60 * 1000;
 
+    const blocked = new Set(blockedUserIds);
+
     return recentPosts.filter(
-      (post) => visibleUids.has(post.authorUid) && post.createdAt.toDate().getTime() >= cutoff
+      (post) =>
+        visibleUids.has(post.authorUid) && !blocked.has(post.authorUid) && post.createdAt.toDate().getTime() >= cutoff
     );
-  }, [friendIds, recentPosts, user]);
+  }, [blockedUserIds, friendIds, recentPosts, user]);
 
   useEffect(() => {
     if (!user) {
@@ -89,6 +94,16 @@ export function FeedView() {
     return subscribeToRecentPosts((nextPosts) => {
       setRecentPosts(nextPosts);
       setPostsReady(true);
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    return subscribeToBlockedUserIds(user.uid, (blockedIds) => {
+      setBlockedUserIds(blockedIds);
     });
   }, [user]);
 
@@ -178,6 +193,50 @@ export function FeedView() {
             key={post.id}
             likedByMe={Boolean(likedByMe[post.id])}
             profileHref={`/profile/${post.authorAddress}`}
+            actionSlot={
+              post.authorUid !== user.uid ? (
+                <>
+                  <button
+                    className="rounded border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-50"
+                    onClick={() => {
+                      void (async () => {
+                        try {
+                          await reportContent({
+                            reporterUid: user.uid,
+                            targetType: "post",
+                            targetId: post.id,
+                            targetOwnerUid: post.authorUid,
+                            reason: "other",
+                            details: "Reported from feed"
+                          });
+                          setError("Thanks. We received your report.");
+                        } catch (caught) {
+                          setError(caught instanceof Error ? caught.message : "Could not submit report.");
+                        }
+                      })();
+                    }}
+                    type="button"
+                  >
+                    Report
+                  </button>
+                  <button
+                    className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      void (async () => {
+                        try {
+                          await blockUser(user.uid, post.authorUid);
+                        } catch (caught) {
+                          setError(caught instanceof Error ? caught.message : "Could not block user.");
+                        }
+                      })();
+                    }}
+                    type="button"
+                  >
+                    Block
+                  </button>
+                </>
+              ) : null
+            }
             onToggleLike={async (targetPost) => {
               const wasLiked = Boolean(likedByMe[targetPost.id]);
 

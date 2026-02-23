@@ -6,6 +6,7 @@ import { useAuth } from "@/components/layout/auth-provider";
 import { CommentThread } from "@/components/posts/comment-thread";
 import { PostCard } from "@/components/posts/post-card";
 import { hasUserLikedPost, subscribeToPostById, toggleLike } from "@/lib/services/post-service";
+import { blockUser, isBlockedEitherDirection, reportContent } from "@/lib/services/safety-service";
 import { getUserProfile } from "@/lib/services/profile-service";
 import type { PostCardRecord } from "@/lib/types/db";
 
@@ -21,6 +22,7 @@ export function PostDetailView({ postId }: PostDetailViewProps) {
   const [likedByMe, setLikedByMe] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isBlockedRelationship, setIsBlockedRelationship] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -40,14 +42,16 @@ export function PostDetailView({ postId }: PostDetailViewProps) {
         }
 
         try {
-          const [authorProfile, liked] = await Promise.all([
+          const [authorProfile, liked, blockedRelationship] = await Promise.all([
             getUserProfile(nextPost.authorUid),
-            hasUserLikedPost(nextPost.id, user.uid)
+            hasUserLikedPost(nextPost.id, user.uid),
+            isBlockedEitherDirection(user.uid, nextPost.authorUid)
           ]);
 
           setPost(nextPost);
           setDisplayName(authorProfile?.displayName);
           setLikedByMe(liked);
+          setIsBlockedRelationship(blockedRelationship);
         } catch (caught) {
           setError(caught instanceof Error ? caught.message : "Could not load postcard.");
         } finally {
@@ -77,9 +81,60 @@ export function PostDetailView({ postId }: PostDetailViewProps) {
         </div>
       ) : null}
 
-      {post ? (
+      {post && isBlockedRelationship ? (
+        <div className="rounded-postcard border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-postcard">
+          This post is hidden because one of you has blocked the other.
+        </div>
+      ) : null}
+
+      {post && !isBlockedRelationship ? (
         <>
           <PostCard
+            actionSlot={
+              post.authorUid !== user.uid ? (
+                <>
+                  <button
+                    className="rounded border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-50"
+                    onClick={() => {
+                      void (async () => {
+                        try {
+                          await reportContent({
+                            reporterUid: user.uid,
+                            targetType: "post",
+                            targetId: post.id,
+                            targetOwnerUid: post.authorUid,
+                            reason: "other",
+                            details: "Reported from post detail"
+                          });
+                          setError("Thanks. We received your report.");
+                        } catch (caught) {
+                          setError(caught instanceof Error ? caught.message : "Could not submit report.");
+                        }
+                      })();
+                    }}
+                    type="button"
+                  >
+                    Report
+                  </button>
+                  <button
+                    className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      void (async () => {
+                        try {
+                          await blockUser(user.uid, post.authorUid);
+                          setIsBlockedRelationship(true);
+                        } catch (caught) {
+                          setError(caught instanceof Error ? caught.message : "Could not block user.");
+                        }
+                      })();
+                    }}
+                    type="button"
+                  >
+                    Block
+                  </button>
+                </>
+              ) : null
+            }
             displayName={displayName}
             likedByMe={likedByMe}
             onToggleLike={async (targetPost) => {

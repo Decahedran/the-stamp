@@ -6,6 +6,7 @@ import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import { useAuth } from "@/components/layout/auth-provider";
 import { PostCard } from "@/components/posts/post-card";
 import { areFriends, removeFriend } from "@/lib/services/friendship-service";
+import { blockUser, isBlockedEitherDirection, reportContent } from "@/lib/services/safety-service";
 import {
   deleteOwnPost,
   getActivePostCountByUid,
@@ -35,6 +36,7 @@ export function ProfileView({ address }: ProfileViewProps) {
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const [removingFriend, setRemovingFriend] = useState(false);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [isBlockedRelationship, setIsBlockedRelationship] = useState(false);
   const [error, setError] = useState("");
 
   async function loadInitialProfile() {
@@ -74,7 +76,13 @@ export function ProfileView({ address }: ProfileViewProps) {
         }))
       );
 
-      const friendship = targetProfile.uid === user.uid ? false : await areFriends(user.uid, targetProfile.uid);
+      const [friendship, blockedRelationship] =
+        targetProfile.uid === user.uid
+          ? [false, false]
+          : await Promise.all([
+              areFriends(user.uid, targetProfile.uid),
+              isBlockedEitherDirection(user.uid, targetProfile.uid)
+            ]);
 
       setProfile({
         ...targetProfile,
@@ -86,6 +94,7 @@ export function ProfileView({ address }: ProfileViewProps) {
       setHasMore(Boolean(firstPage.nextCursor));
       setFriendshipStatus(friendship ? "friend" : "not_friend");
       setRemoveConfirmOpen(false);
+      setIsBlockedRelationship(blockedRelationship);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load profile.");
     } finally {
@@ -229,9 +238,59 @@ export function ProfileView({ address }: ProfileViewProps) {
                 Not currently friends. <Link href="/friends">Go to Friends</Link> to connect.
               </p>
             ) : null}
+
+            {!isOwnProfile ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  className="rounded border border-amber-300 px-3 py-1 text-xs text-amber-800 hover:bg-amber-50"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await reportContent({
+                          reporterUid: user.uid,
+                          targetType: "profile",
+                          targetId: profile.uid,
+                          targetOwnerUid: profile.uid,
+                          reason: "other",
+                          details: "Reported from profile view"
+                        });
+                        setError("Thanks. We received your report.");
+                      } catch (caught) {
+                        setError(caught instanceof Error ? caught.message : "Could not submit report.");
+                      }
+                    })();
+                  }}
+                  type="button"
+                >
+                  Report profile
+                </button>
+                <button
+                  className="rounded border border-red-300 px-3 py-1 text-xs text-red-700 hover:bg-red-50"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await blockUser(user.uid, profile.uid);
+                        setIsBlockedRelationship(true);
+                      } catch (caught) {
+                        setError(caught instanceof Error ? caught.message : "Could not block user.");
+                      }
+                    })();
+                  }}
+                  type="button"
+                >
+                  Block user
+                </button>
+              </div>
+            ) : null}
           </header>
 
-          {posts.length === 0 ? (
+          {isBlockedRelationship && !isOwnProfile ? (
+            <div className="rounded-postcard border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-postcard">
+              You and this user are blocked from each other. Content is hidden.
+            </div>
+          ) : null}
+
+          {isBlockedRelationship && !isOwnProfile ? null : posts.length === 0 ? (
             <div className="rounded-postcard border border-stamp-muted bg-white p-4 shadow-postcard">
               <p className="text-sm text-stamp-ink/75">No postcards yet.</p>
             </div>

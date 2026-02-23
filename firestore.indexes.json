@@ -32,6 +32,30 @@
         { "fieldPath": "postId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "userBlocks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "blockerUid", "order": "ASCENDING" },
+        { "fieldPath": "blockedUid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "userBlocks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "blockedUid", "order": "ASCENDING" },
+        { "fieldPath": "blockerUid", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

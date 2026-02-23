@@ -85,7 +85,41 @@ export interface PostComment {
   updatedAt: Timestamp;
 }
 
+export type ReportReason =
+  | "bullying_harassment"
+  | "sexual_content"
+  | "violence_threats"
+  | "self_harm"
+  | "hate_abuse"
+  | "spam"
+  | "other";
+
+export type ReportTargetType = "post" | "comment" | "profile";
+export type ReportStatus = "open" | "resolved" | "dismissed";
+
+export interface SafetyReport {
+  reporterUid: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  targetOwnerUid: string;
+  reason: ReportReason;
+  details: string;
+  status: ReportStatus;
+  reviewedByUid: string;
+  reviewedAt: Timestamp | null;
+  reviewNotes: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface UserBlock {
+  blockerUid: string;
+  blockedUid: string;
+  createdAt: Timestamp;
+}
+
 export type WithId<T> = T & { id: string };
 export type FriendRequestRecord = WithId<FriendRequest>;
 export type PostCardRecord = WithId<PostCard>;
 export type PostCommentRecord = WithId<PostComment>;
+export type SafetyReportRecord = WithId<SafetyReport>;

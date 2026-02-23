@@ -100,7 +100,13 @@ export function NotificationCenter() {
                 <button
                   className="rounded border border-stamp-muted px-2 py-1 text-xs hover:bg-stamp-muted"
                   onClick={() => {
-                    void markNotificationRead(item.id);
+                    void (async () => {
+                      try {
+                        await markNotificationRead(item.id);
+                      } catch (caught) {
+                        setError(caught instanceof Error ? caught.message : "Could not mark notification as read.");
+                      }
+                    })();
                   }}
                   type="button"
                 >

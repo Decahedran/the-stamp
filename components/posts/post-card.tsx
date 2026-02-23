@@ -12,6 +12,7 @@ type PostCardProps = {
   showCommentCount?: boolean;
   likedByMe?: boolean;
   deleteDisabled?: boolean;
+  actionSlot?: React.ReactNode;
   onToggleLike: (post: PostCardRecord) => Promise<void>;
   onDelete?: (post: PostCardRecord) => Promise<void>;
 };
@@ -24,6 +25,7 @@ export function PostCard({
   showCommentCount = true,
   likedByMe = false,
   deleteDisabled = false,
+  actionSlot,
   onToggleLike,
   onDelete
 }: PostCardProps) {
@@ -45,7 +47,7 @@ export function PostCard({
 
       <p className="whitespace-pre-wrap text-sm text-stamp-ink">{post.content}</p>
 
-      <footer className="flex items-center gap-2 text-sm">
+      <footer className="flex flex-wrap items-center gap-2 text-sm">
         <Link className="rounded border border-stamp-muted px-3 py-1 hover:bg-stamp-muted" href={`/post/${post.id}`}>
           {showCommentCount ? `Comments (${Math.max(0, post.commentCount ?? 0)})` : "Comments"}
         </Link>
@@ -71,6 +73,9 @@ export function PostCard({
             {deleteDisabled ? "Deleting..." : "Delete"}
           </button>
         ) : null}
+
+        {actionSlot ? <div className="ml-auto flex flex-wrap items-center gap-2">{actionSlot}</div> : null}
+
       </footer>
     </article>
   );

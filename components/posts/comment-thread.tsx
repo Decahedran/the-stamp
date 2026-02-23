@@ -11,6 +11,7 @@ import {
   subscribeToPostComments,
   type PostCommentThread
 } from "@/lib/services/comment-service";
+import { blockUser, reportContent, subscribeToBlockedUserIds } from "@/lib/services/safety-service";
 import type { PostCardRecord, PostCommentRecord } from "@/lib/types/db";
 import { COMMENT_MAX_LENGTH } from "@/lib/utils/constants";
 import { formatTimestamp } from "@/lib/utils/dates";
@@ -29,6 +30,7 @@ export function CommentThread({ post }: CommentThreadProps) {
   const [busyCommentId, setBusyCommentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -39,6 +41,16 @@ export function CommentThread({ post }: CommentThreadProps) {
       setLoading(false);
     });
   }, [post.id]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    return subscribeToBlockedUserIds(user.uid, (blockedIds) => {
+      setBlockedUserIds(blockedIds);
+    });
+  }, [user]);
 
   const totalComments = useMemo(
     () =>
@@ -146,7 +158,11 @@ export function CommentThread({ post }: CommentThreadProps) {
   }
 
   function renderComment(item: PostCommentRecord, depth = 0) {
-    const replies = thread.repliesByParentId[item.id] ?? [];
+    if (blockedUserIds.includes(item.authorUid)) {
+      return null;
+    }
+
+    const replies = (thread.repliesByParentId[item.id] ?? []).filter((reply) => !blockedUserIds.includes(reply.authorUid));
     const isOwnComment = item.authorUid === currentUser.uid;
     const isBusy = busyCommentId === item.id;
     const replyValue = replyDrafts[item.id] ?? "";
@@ -206,6 +222,48 @@ export function CommentThread({ post }: CommentThreadProps) {
                   type="button"
                 >
                   {isBusy ? "Removing..." : "Delete (owner)"}
+                </button>
+              </>
+            ) : null}
+            {item.authorUid !== currentUser.uid ? (
+              <>
+                <button
+                  className="rounded border border-amber-300 px-2 py-0.5 text-amber-800 hover:bg-amber-50"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await reportContent({
+                          reporterUid: currentUser.uid,
+                          targetType: "comment",
+                          targetId: item.id,
+                          targetOwnerUid: item.authorUid,
+                          reason: "other",
+                          details: "Reported from comment thread"
+                        });
+                        setError("Thanks. We received your report.");
+                      } catch (caught) {
+                        setError(caught instanceof Error ? caught.message : "Could not submit report.");
+                      }
+                    })();
+                  }}
+                  type="button"
+                >
+                  Report
+                </button>
+                <button
+                  className="rounded border border-red-300 px-2 py-0.5 text-red-700 hover:bg-red-50"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await blockUser(currentUser.uid, item.authorUid);
+                      } catch (caught) {
+                        setError(caught instanceof Error ? caught.message : "Could not block user.");
+                      }
+                    })();
+                  }}
+                  type="button"
+                >
+                  Block
                 </button>
               </>
             ) : null}
@@ -293,7 +351,7 @@ export function CommentThread({ post }: CommentThreadProps) {
         <p className="text-sm text-stamp-ink/70">No comments yet. Start the conversation.</p>
       ) : null}
 
-      <div className="space-y-3">{thread.roots.map((item) => renderComment(item))}</div>
+      <div className="space-y-3">{thread.roots.filter((item) => !blockedUserIds.includes(item.authorUid)).map((item) => renderComment(item))}</div>
     </section>
   );
 }

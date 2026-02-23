@@ -5,3 +5,6 @@ export const ADDRESS_MAX_LENGTH = 20;
 export const ADDRESS_CHANGE_COOLDOWN_DAYS = 7;
 export const FEED_WINDOW_HOURS = 24;
 export const PROFILE_POSTS_PAGE_SIZE = 10;
+
+export const REPORT_DETAIL_MAX_LENGTH = 500;
+export const ADMIN_UIDS = ["Q55IUn8W53evG5f7El8mQwe74hQ2"] as const;

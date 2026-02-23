@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/layout/auth-provider";
 import { UnreadNotificationBadge } from "@/components/notifications/unread-badge";
 import { signOutCurrentUser } from "@/lib/services/auth-service";
+import { ADMIN_UIDS } from "@/lib/utils/constants";
 
 export function TopNav() {
   const pathname = usePathname();
   const { user, loading } = useAuth();
 
   const isAuthRoute = pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up");
+  const isAdmin = Boolean(user && ADMIN_UIDS.includes(user.uid));
 
   if (isAuthRoute) {
     return null;
@@ -32,6 +34,7 @@ export function TopNav() {
               <UnreadNotificationBadge />
             </Link>
             <Link href="/settings/profile">Settings</Link>
+            {isAdmin ? <Link href="/admin/reports">Moderation</Link> : null}
             <button
               className="rounded border border-stamp-muted px-3 py-1 hover:bg-stamp-muted"
               onClick={() => {
