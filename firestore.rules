@@ -290,6 +290,8 @@ service cloud.firestore {
           'reviewedByUid',
           'reviewedAt',
           'reviewNotes',
+          'escalationCount',
+          'flaggedForReview',
           'createdAt',
           'updatedAt'
         ])
@@ -302,10 +304,13 @@ service cloud.firestore {
         && validReportReason(request.resource.data.reason)
         && request.resource.data.details is string
         && request.resource.data.details.size() <= 500
-        && request.resource.data.status == 'open'
+        && request.resource.data.status in ['open', 'escalated']
         && request.resource.data.reviewedByUid == ''
         && request.resource.data.reviewedAt == null
-        && request.resource.data.reviewNotes == '';
+        && request.resource.data.reviewNotes == ''
+        && request.resource.data.escalationCount is int
+        && request.resource.data.escalationCount >= 1
+        && request.resource.data.flaggedForReview is bool;
     }
 
     function isAdmin() {
@@ -322,7 +327,9 @@ service cloud.firestore {
         && request.resource.data.targetOwnerUid == resource.data.targetOwnerUid
         && request.resource.data.reason == resource.data.reason
         && request.resource.data.details == resource.data.details
-        && resource.data.status == 'open'
+        && request.resource.data.escalationCount == resource.data.escalationCount
+        && request.resource.data.flaggedForReview == resource.data.flaggedForReview
+        && resource.data.status in ['open', 'escalated']
         && request.resource.data.status in ['resolved', 'dismissed']
         && request.resource.data.reviewedByUid == request.auth.uid
         && request.resource.data.reviewNotes is string
@@ -334,6 +341,41 @@ service cloud.firestore {
           'reviewNotes',
           'updatedAt'
         ]);
+    }
+
+    function isUserCurrentlyMuted(uid) {
+      let safetyDoc = get(/databases/$(database)/documents/userSafety/$(uid));
+      return safetyDoc.data != null
+        && safetyDoc.data.uid == uid
+        && safetyDoc.data.mutedUntil != null
+        && safetyDoc.data.mutedUntil > request.time;
+    }
+
+    function validUserSafetyWrite(uid) {
+      return isAdmin()
+        && hasOnlyKeys(request.resource.data, ['uid', 'mutedUntil', 'muteReason', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.muteReason is string
+        && request.resource.data.muteReason.size() <= 500;
+    }
+
+    function validModerationActionCreate() {
+      return isAdmin()
+        && hasOnlyKeys(request.resource.data, [
+          'reportId',
+          'targetType',
+          'targetId',
+          'targetOwnerUid',
+          'action',
+          'actorUid',
+          'notes',
+          'createdAt'
+        ])
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.targetType in ['post', 'comment', 'profile']
+        && request.resource.data.action in ['escalated', 'resolved', 'dismissed', 'muted_user']
+        && request.resource.data.notes is string
+        && request.resource.data.notes.size() <= 500;
     }
 
     function validUserBlockCreate(blockId) {
@@ -454,7 +496,7 @@ service cloud.firestore {
 
     match /posts/{postId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && validPostCreate();
+      allow create: if isSignedIn() && !isUserCurrentlyMuted(request.auth.uid) && validPostCreate();
       allow update: if isSignedIn() && (isPostSoftDeleteByAuthor() || isPostLikeCountDelta() || isPostCommentCountDelta());
       allow delete: if false;
     }
@@ -468,7 +510,7 @@ service cloud.firestore {
 
     match /comments/{commentId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && validCommentCreate(commentId);
+      allow create: if isSignedIn() && !isUserCurrentlyMuted(request.auth.uid) && validCommentCreate(commentId);
       allow update: if isSignedIn() && (isOwnCommentSoftDelete() || isCommentModerationByPostOwner());
       allow delete: if false;
     }
@@ -497,6 +539,18 @@ service cloud.firestore {
       allow create: if isSignedIn() && validUserBlockCreate(blockId);
       allow update: if false;
       allow delete: if validUserBlockDelete();
+    }
+
+    match /userSafety/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update: if validUserSafetyWrite(uid);
+      allow delete: if false;
+    }
+
+    match /moderationActions/{actionId} {
+      allow read: if isAdmin();
+      allow create: if validModerationActionCreate();
+      allow update, delete: if false;
     }
   }
 }

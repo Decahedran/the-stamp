@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { createPost } from "@/lib/services/post-service";
+import { subscribeToUserSafetyStatus } from "@/lib/services/safety-service";
 import { POST_MAX_LENGTH } from "@/lib/utils/constants";
 import { postContentSchema } from "@/lib/utils/validation";
 
@@ -16,8 +17,21 @@ export function PostComposer({ authorUid, authorAddress, onPosted }: PostCompose
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mutedUntilText, setMutedUntilText] = useState<string | null>(null);
 
   const remaining = POST_MAX_LENGTH - content.length;
+  const isMuted = useMemo(() => Boolean(mutedUntilText), [mutedUntilText]);
+
+  useEffect(() => {
+    return subscribeToUserSafetyStatus(authorUid, (status) => {
+      if (!status?.mutedUntil || status.mutedUntil.toDate().getTime() <= Date.now()) {
+        setMutedUntilText(null);
+        return;
+      }
+
+      setMutedUntilText(status.mutedUntil.toDate().toLocaleString());
+    });
+  }, [authorUid]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,6 +39,10 @@ export function PostComposer({ authorUid, authorAddress, onPosted }: PostCompose
     setLoading(true);
 
     try {
+      if (isMuted) {
+        throw new Error(`Posting is temporarily disabled until ${mutedUntilText}.`);
+      }
+
       const parsed = postContentSchema.parse(content);
       await createPost(authorUid, authorAddress, parsed);
       setContent("");
@@ -59,12 +77,13 @@ export function PostComposer({ authorUid, authorAddress, onPosted }: PostCompose
         <p className="text-xs text-stamp-ink/70">{remaining} characters left</p>
         <button
           className="rounded border border-stamp-muted px-3 py-1 text-sm hover:bg-stamp-muted disabled:opacity-60"
-          disabled={loading}
+          disabled={loading || isMuted}
           type="submit"
         >
           {loading ? "Stamping..." : "Send Postcard"}
         </button>
       </div>
+      {isMuted ? <p className="text-sm text-red-700">Posting is temporarily disabled until {mutedUntilText}.</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
     </form>
   );

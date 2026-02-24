@@ -95,7 +95,7 @@ export type ReportReason =
   | "other";
 
 export type ReportTargetType = "post" | "comment" | "profile";
-export type ReportStatus = "open" | "resolved" | "dismissed";
+export type ReportStatus = "open" | "escalated" | "resolved" | "dismissed";
 
 export interface SafetyReport {
   reporterUid: string;
@@ -108,6 +108,8 @@ export interface SafetyReport {
   reviewedByUid: string;
   reviewedAt: Timestamp | null;
   reviewNotes: string;
+  escalationCount: number;
+  flaggedForReview: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -118,8 +120,27 @@ export interface UserBlock {
   createdAt: Timestamp;
 }
 
+export interface UserSafetyStatus {
+  uid: string;
+  mutedUntil: Timestamp | null;
+  muteReason: string;
+  updatedAt: Timestamp;
+}
+
+export interface ModerationAction {
+  reportId: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  targetOwnerUid: string;
+  action: "escalated" | "resolved" | "dismissed" | "muted_user";
+  actorUid: string;
+  notes: string;
+  createdAt: Timestamp;
+}
+
 export type WithId<T> = T & { id: string };
 export type FriendRequestRecord = WithId<FriendRequest>;
 export type PostCardRecord = WithId<PostCard>;
 export type PostCommentRecord = WithId<PostComment>;
 export type SafetyReportRecord = WithId<SafetyReport>;
+export type ModerationActionRecord = WithId<ModerationAction>;

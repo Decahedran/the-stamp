@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/layout/auth-provider";
 import { UnreadNotificationBadge } from "@/components/notifications/unread-badge";
+import { ModerationInboxBadge } from "@/components/admin/moderation-inbox-badge";
 import { signOutCurrentUser } from "@/lib/services/auth-service";
 import { ADMIN_UIDS } from "@/lib/utils/constants";
 
@@ -34,7 +35,12 @@ export function TopNav() {
               <UnreadNotificationBadge />
             </Link>
             <Link href="/settings/profile">Settings</Link>
-            {isAdmin ? <Link href="/admin/reports">Moderation</Link> : null}
+            {isAdmin ? (
+              <Link className="inline-flex items-center" href="/admin/reports">
+                Moderation
+                <ModerationInboxBadge enabled={isAdmin} />
+              </Link>
+            ) : null}
             <button
               className="rounded border border-stamp-muted px-3 py-1 hover:bg-stamp-muted"
               onClick={() => {

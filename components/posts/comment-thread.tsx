@@ -12,7 +12,7 @@ import {
   type PostCommentThread
 } from "@/lib/services/comment-service";
 import { ReportButton } from "@/components/safety/report-button";
-import { blockUser, subscribeToBlockedUserIds } from "@/lib/services/safety-service";
+import { blockUser, subscribeToBlockedUserIds, subscribeToUserSafetyStatus } from "@/lib/services/safety-service";
 import type { PostCardRecord, PostCommentRecord } from "@/lib/types/db";
 import { COMMENT_MAX_LENGTH } from "@/lib/utils/constants";
 import { formatTimestamp } from "@/lib/utils/dates";
@@ -32,6 +32,7 @@ export function CommentThread({ post }: CommentThreadProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+  const [mutedUntilText, setMutedUntilText] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -50,6 +51,21 @@ export function CommentThread({ post }: CommentThreadProps) {
 
     return subscribeToBlockedUserIds(user.uid, (blockedIds) => {
       setBlockedUserIds(blockedIds);
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    return subscribeToUserSafetyStatus(user.uid, (status) => {
+      if (!status?.mutedUntil || status.mutedUntil.toDate().getTime() <= Date.now()) {
+        setMutedUntilText(null);
+        return;
+      }
+
+      setMutedUntilText(status.mutedUntil.toDate().toLocaleString());
     });
   }, [user]);
 
@@ -87,6 +103,10 @@ export function CommentThread({ post }: CommentThreadProps) {
     setBusyCommentId(parentCommentId ?? "root");
 
     try {
+      if (mutedUntilText) {
+        throw new Error(`Commenting is temporarily disabled until ${mutedUntilText}.`);
+      }
+
       await createComment({
         actorUid: currentUser.uid,
         postId: post.id,
@@ -319,7 +339,7 @@ export function CommentThread({ post }: CommentThreadProps) {
           <p className="text-xs text-stamp-ink/60">{remaining} characters left</p>
           <button
             className="rounded border border-stamp-muted px-3 py-1 text-sm hover:bg-stamp-muted disabled:opacity-60"
-            disabled={busyCommentId === "root"}
+            disabled={busyCommentId === "root" || Boolean(mutedUntilText)}
             onClick={() => {
               void submitComment();
             }}
@@ -331,6 +351,7 @@ export function CommentThread({ post }: CommentThreadProps) {
       </div>
 
       {loading ? <p className="text-sm text-stamp-ink/70">Loading comments...</p> : null}
+      {mutedUntilText ? <p className="text-sm text-red-700">Commenting is temporarily disabled until {mutedUntilText}.</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
       {!loading && thread.roots.length === 0 ? (

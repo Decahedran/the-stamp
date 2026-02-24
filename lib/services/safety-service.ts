@@ -1,8 +1,10 @@
 import {
+  Timestamp,
   addDoc,
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -12,11 +14,19 @@ import {
   setDoc,
   updateDoc,
   where,
-  type Timestamp,
   type Unsubscribe
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import type { ReportReason, ReportStatus, ReportTargetType, SafetyReport, SafetyReportRecord } from "@/lib/types/db";
+import type {
+  ModerationAction,
+  ReportReason,
+  ReportStatus,
+  ReportTargetType,
+  SafetyReport,
+  SafetyReportRecord,
+  UserSafetyStatus
+} from "@/lib/types/db";
+import { REPORT_AUTO_ESCALATE_THRESHOLD, SAFETY_MUTE_DEFAULT_MINUTES } from "@/lib/utils/constants";
 
 const REPORT_RATE_LIMIT_SECONDS = 30;
 
@@ -28,6 +38,60 @@ function isRecentTimestamp(timestamp: Timestamp | null | undefined, windowSecond
   return Date.now() - timestamp.toDate().getTime() < windowSeconds * 1000;
 }
 
+async function countUnresolvedReportsForTarget(targetType: ReportTargetType, targetId: string): Promise<number> {
+  const [openSnapshots, escalatedSnapshots] = await Promise.all([
+    getDocs(
+      query(
+        collection(db, "reports"),
+        where("targetType", "==", targetType),
+        where("targetId", "==", targetId),
+        where("status", "==", "open")
+      )
+    ),
+    getDocs(
+      query(
+        collection(db, "reports"),
+        where("targetType", "==", targetType),
+        where("targetId", "==", targetId),
+        where("status", "==", "escalated")
+      )
+    )
+  ]);
+
+  return openSnapshots.size + escalatedSnapshots.size;
+}
+
+async function hasDuplicateOpenReport(params: {
+  reporterUid: string;
+  targetType: ReportTargetType;
+  targetId: string;
+}): Promise<boolean> {
+  const [openSnapshots, escalatedSnapshots] = await Promise.all([
+    getDocs(
+      query(
+        collection(db, "reports"),
+        where("reporterUid", "==", params.reporterUid),
+        where("targetType", "==", params.targetType),
+        where("targetId", "==", params.targetId),
+        where("status", "==", "open"),
+        limit(1)
+      )
+    ),
+    getDocs(
+      query(
+        collection(db, "reports"),
+        where("reporterUid", "==", params.reporterUid),
+        where("targetType", "==", params.targetType),
+        where("targetId", "==", params.targetId),
+        where("status", "==", "escalated"),
+        limit(1)
+      )
+    )
+  ]);
+
+  return !openSnapshots.empty || !escalatedSnapshots.empty;
+}
+
 export async function reportContent(params: {
   reporterUid: string;
   targetType: ReportTargetType;
@@ -36,18 +100,13 @@ export async function reportContent(params: {
   reason: ReportReason;
   details?: string;
 }) {
-  const duplicateReportSnapshots = await getDocs(
-    query(
-      collection(db, "reports"),
-      where("reporterUid", "==", params.reporterUid),
-      where("targetType", "==", params.targetType),
-      where("targetId", "==", params.targetId),
-      where("status", "==", "open"),
-      limit(1)
-    )
-  );
+  const isDuplicate = await hasDuplicateOpenReport({
+    reporterUid: params.reporterUid,
+    targetType: params.targetType,
+    targetId: params.targetId
+  });
 
-  if (!duplicateReportSnapshots.empty) {
+  if (isDuplicate) {
     throw new Error("You already have an open report for this content.");
   }
 
@@ -63,6 +122,10 @@ export async function reportContent(params: {
     throw new Error("Please wait a few seconds before submitting another report.");
   }
 
+  const unresolvedCount = await countUnresolvedReportsForTarget(params.targetType, params.targetId);
+  const escalationCount = unresolvedCount + 1;
+  const flaggedForReview = escalationCount >= REPORT_AUTO_ESCALATE_THRESHOLD;
+
   await addDoc(collection(db, "reports"), {
     reporterUid: params.reporterUid,
     targetType: params.targetType,
@@ -70,10 +133,12 @@ export async function reportContent(params: {
     targetOwnerUid: params.targetOwnerUid,
     reason: params.reason,
     details: params.details?.trim() ?? "",
-    status: "open",
+    status: flaggedForReview ? "escalated" : "open",
     reviewedByUid: "",
     reviewedAt: null,
     reviewNotes: "",
+    escalationCount,
+    flaggedForReview,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
@@ -150,23 +215,77 @@ export function subscribeToBlockedUserIds(uid: string, onChange: (blockedIds: st
 }
 
 export function subscribeToOpenReports(onChange: (reports: SafetyReportRecord[]) => void): Unsubscribe {
-  return onSnapshot(
+  return subscribeToUnresolvedReports(onChange);
+}
+
+export function subscribeToUnresolvedReports(onChange: (reports: SafetyReportRecord[]) => void): Unsubscribe {
+  let openReports: SafetyReportRecord[] = [];
+  let escalatedReports: SafetyReportRecord[] = [];
+
+  function emit() {
+    const merged = [...openReports, ...escalatedReports].sort(
+      (a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime()
+    );
+    onChange(merged.slice(0, 300));
+  }
+
+  const unsubOpen = onSnapshot(
     query(collection(db, "reports"), where("status", "==", "open"), orderBy("createdAt", "desc"), limit(200)),
     (snapshots) => {
-      onChange(
-        snapshots.docs.map((snapshot) => ({
-          id: snapshot.id,
-          ...(snapshot.data() as Omit<SafetyReport, "id">)
-        }))
-      );
+      openReports = snapshots.docs.map((snapshot) => ({
+        id: snapshot.id,
+        ...(snapshot.data() as Omit<SafetyReport, "id">)
+      }));
+      emit();
     }
   );
+
+  const unsubEscalated = onSnapshot(
+    query(collection(db, "reports"), where("status", "==", "escalated"), orderBy("createdAt", "desc"), limit(200)),
+    (snapshots) => {
+      escalatedReports = snapshots.docs.map((snapshot) => ({
+        id: snapshot.id,
+        ...(snapshot.data() as Omit<SafetyReport, "id">)
+      }));
+      emit();
+    }
+  );
+
+  return () => {
+    unsubOpen();
+    unsubEscalated();
+  };
+}
+
+export function subscribeToModerationInboxCount(onChange: (count: number) => void): Unsubscribe {
+  let openCount = 0;
+  let escalatedCount = 0;
+
+  const emit = () => onChange(openCount + escalatedCount);
+
+  const unsubOpen = onSnapshot(query(collection(db, "reports"), where("status", "==", "open"), limit(500)), (snapshots) => {
+    openCount = snapshots.size;
+    emit();
+  });
+
+  const unsubEscalated = onSnapshot(
+    query(collection(db, "reports"), where("status", "==", "escalated"), limit(500)),
+    (snapshots) => {
+      escalatedCount = snapshots.size;
+      emit();
+    }
+  );
+
+  return () => {
+    unsubOpen();
+    unsubEscalated();
+  };
 }
 
 export async function updateReportStatus(params: {
   reportId: string;
   reviewerUid: string;
-  status: Exclude<ReportStatus, "open">;
+  status: Exclude<ReportStatus, "open" | "escalated">;
   reviewNotes?: string;
 }) {
   await updateDoc(doc(db, "reports", params.reportId), {
@@ -176,4 +295,90 @@ export async function updateReportStatus(params: {
     reviewNotes: params.reviewNotes?.trim() ?? "",
     updatedAt: serverTimestamp()
   });
+
+  await addModerationAction({
+    reportId: params.reportId,
+    action: params.status,
+    actorUid: params.reviewerUid,
+    notes: params.reviewNotes?.trim() ?? ""
+  });
+}
+
+async function addModerationAction(params: {
+  reportId: string;
+  action: "escalated" | "resolved" | "dismissed" | "muted_user";
+  actorUid: string;
+  notes: string;
+}) {
+  const reportSnapshot = await getDoc(doc(db, "reports", params.reportId));
+  if (!reportSnapshot.exists()) {
+    return;
+  }
+
+  const report = reportSnapshot.data() as SafetyReport;
+
+  const payload: Omit<ModerationAction, "createdAt"> & { createdAt: unknown } = {
+    reportId: params.reportId,
+    targetType: report.targetType,
+    targetId: report.targetId,
+    targetOwnerUid: report.targetOwnerUid,
+    action: params.action,
+    actorUid: params.actorUid,
+    notes: params.notes,
+    createdAt: serverTimestamp()
+  };
+
+  await addDoc(collection(db, "moderationActions"), payload);
+}
+
+export async function muteUser(params: { uid: string; moderatorUid: string; reason?: string; minutes?: number }) {
+  const minutes = Math.max(1, params.minutes ?? SAFETY_MUTE_DEFAULT_MINUTES);
+  const mutedUntil = Timestamp.fromMillis(Date.now() + minutes * 60 * 1000);
+
+  await setDoc(doc(db, "userSafety", params.uid), {
+    uid: params.uid,
+    mutedUntil,
+    muteReason: params.reason?.trim() ?? "Muted by moderator",
+    updatedAt: serverTimestamp()
+  });
+
+  await addDoc(collection(db, "moderationActions"), {
+    reportId: "",
+    targetType: "profile",
+    targetId: params.uid,
+    targetOwnerUid: params.uid,
+    action: "muted_user",
+    actorUid: params.moderatorUid,
+    notes: params.reason?.trim() ?? "Muted by moderator",
+    createdAt: serverTimestamp()
+  });
+}
+
+export async function getUserSafetyStatus(uid: string): Promise<UserSafetyStatus | null> {
+  const snapshot = await getDoc(doc(db, "userSafety", uid));
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return snapshot.data() as UserSafetyStatus;
+}
+
+export function subscribeToUserSafetyStatus(uid: string, onChange: (status: UserSafetyStatus | null) => void): Unsubscribe {
+  return onSnapshot(doc(db, "userSafety", uid), (snapshot) => {
+    if (!snapshot.exists()) {
+      onChange(null);
+      return;
+    }
+
+    onChange(snapshot.data() as UserSafetyStatus);
+  });
+}
+
+export async function isUserMuted(uid: string): Promise<boolean> {
+  const status = await getUserSafetyStatus(uid);
+  if (!status?.mutedUntil) {
+    return false;
+  }
+
+  return status.mutedUntil.toDate().getTime() > Date.now();
 }
