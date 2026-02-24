@@ -46,6 +46,11 @@ export function ReportButton({
   }
 
   async function submitReport() {
+    if (!user) {
+      onError?.("You must be signed in to report content.");
+      return;
+    }
+
     setBusy(true);
 
     try {
